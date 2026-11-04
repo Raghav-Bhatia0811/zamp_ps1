@@ -33,7 +33,7 @@ System packages for the offline reader: `poppler-utils` and `tesseract-ocr` (`su
 ```bash
 git clone <this repo> ledgerline && cd ledgerline
 cp .env.example .env          # add ANTHROPIC_API_KEY, or leave it empty for offline OCR
-docker compose up -d --build  # serves on http://<server>:8000
+docker compose up -d --build  # serves on http://127.0.0.1:8000 (see PORT/BIND in .env)
 docker compose logs -f        # watch it start
 ```
 
@@ -53,6 +53,16 @@ location / {
 ```
 
 > **The app has no login.** Anyone with the URL can upload invoices and use your API key. For a demo, share the link only with reviewers, or add basic auth at the proxy (`auth_basic` in Nginx).
+
+### Public link with Tailscale Funnel
+
+```bash
+sudo tailscale funnel status          # see what is already published
+sudo tailscale funnel --bg 8000       # https://<machine>.<tailnet>.ts.net -> localhost:8000
+# if 443 is already used by another app: sudo tailscale funnel --bg --https=8443 8000
+```
+
+Funnel only publishes on ports 443, 8443 and 10000, and the app must sit at the root of its URL (no subpath). Never run `tailscale funnel reset`: it removes every app published from that machine.
 
 Without Docker: install `poppler-utils` and `tesseract-ocr`, then run the commands in *Run it* with `--host 0.0.0.0`.
 

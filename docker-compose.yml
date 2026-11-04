@@ -4,7 +4,7 @@ services:
     image: ledgerline:latest
     restart: unless-stopped
     ports:
-      - "${PORT:-8000}:8000"
+      - "${BIND:-127.0.0.1}:${PORT:-8000}:8000"   # localhost only; Tailscale/Nginx forwards to it
     environment:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-opus-5-5}
