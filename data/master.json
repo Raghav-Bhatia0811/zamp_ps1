@@ -1,0 +1,161 @@
+{
+  "buyer": {
+    "name": "Halden Foods Pvt Ltd",
+    "gstin": "27AAACH1234F1Z5",
+    "address": "Plot 14, MIDC Bhosari, Pune 411026"
+  },
+  "policy": {
+    "line_price_tolerance_pct": 2.0,
+    "total_tolerance_pct": 1.0,
+    "total_tolerance_abs": 1000,
+    "po_overrun_tolerance_pct": 0.0,
+    "duplicate_window_days": 7,
+    "inferred_po_min_confidence": 0.75,
+    "standard_gst_rates": [5, 12, 18, 28],
+    "required_fields": ["vendor_name", "invoice_number", "invoice_date", "total"]
+  },
+  "vendors": [
+    {
+      "id": "V001",
+      "name": "Northwind Office Supplies Pvt Ltd",
+      "aliases": ["Northwind Office Supplies", "Northwind Supplies"],
+      "gstin": "27AABCN4521K1Z2",
+      "status": "approved",
+      "gst_rate": 18,
+      "payment_terms_days": 30,
+      "bank": {"bank": "HDFC Bank", "account": "50100234174417", "ifsc": "HDFC0000123"},
+      "contact": {"name": "Priya Menon", "email": "accounts@northwind-supplies.in", "phone": "+91 20 4110 2290"}
+    },
+    {
+      "id": "V002",
+      "name": "Brightline Logistics LLP",
+      "aliases": ["Brightline Logistics"],
+      "gstin": "29AAKFB7781M1Z9",
+      "status": "approved",
+      "gst_rate": 18,
+      "payment_terms_days": 45,
+      "bank": {"bank": "Axis Bank", "account": "912020045566781", "ifsc": "UTIB0000412"},
+      "contact": {"name": "Rohan Shetty", "email": "billing@brightline.co.in", "phone": "+91 80 6650 1180"}
+    },
+    {
+      "id": "V003",
+      "name": "Apex Facility Services",
+      "aliases": ["Apex Facility Svcs", "Apex Facilities"],
+      "gstin": "27AAQFA3349P1ZK",
+      "status": "approved",
+      "gst_rate": 18,
+      "payment_terms_days": 30,
+      "bank": {"bank": "Kotak Mahindra Bank", "account": "4912338870", "ifsc": "KKBK0001761"},
+      "contact": {"name": "Sunil Gaikwad", "email": "accounts@apexfacility.in", "phone": "+91 20 2765 4410"}
+    },
+    {
+      "id": "V004",
+      "name": "Kestrel IT Solutions Pvt Ltd",
+      "aliases": ["Kestrel IT Solutions", "Kestrel IT"],
+      "gstin": "07AAFCK9012L1Z4",
+      "status": "approved",
+      "gst_rate": 18,
+      "payment_terms_days": 30,
+      "bank": {"bank": "ICICI Bank", "account": "039105002231", "ifsc": "ICIC0000391"},
+      "contact": {"name": "Aman Bhalla", "email": "finance@kestrel-it.in", "phone": "+91 11 4505 7720"}
+    },
+    {
+      "id": "V005",
+      "name": "Meridian Print Co.",
+      "aliases": ["Meridian Print Company", "Meridian Printers"],
+      "gstin": "27AAGPM5567R1Z8",
+      "status": "approved",
+      "gst_rate": 18,
+      "payment_terms_days": 30,
+      "bank": {"bank": "State Bank of India", "account": "38820117745", "ifsc": "SBIN0004120"},
+      "contact": {"name": "Farah Qureshi", "email": "billing@meridianprint.in", "phone": "+91 22 2640 8812"}
+    },
+    {
+      "id": "V006",
+      "name": "Solace Catering Services",
+      "aliases": ["Solace Catering"],
+      "gstin": "27AAMFS2210C1Z3",
+      "status": "suspended",
+      "status_reason": "KYC documents expired on 30 Sep 2026",
+      "gst_rate": 5,
+      "payment_terms_days": 15,
+      "bank": {"bank": "Bank of Baroda", "account": "04120100018892", "ifsc": "BARB0PUNEXX"},
+      "contact": {"name": "Neha Kulkarni", "email": "accounts@solacecatering.in", "phone": "+91 20 2554 0911"}
+    }
+  ],
+  "purchase_orders": [
+    {
+      "id": "PO-1001", "vendor_id": "V001", "issued": "2026-10-06", "status": "open",
+      "description": "Office consumables — Q4 replenishment",
+      "lines": [
+        {"description": "A4 copier paper 75gsm (box of 5 reams)", "quantity": 40, "unit_price": 1450.00},
+        {"description": "Toner cartridge HP 88A", "quantity": 12, "unit_price": 3200.00},
+        {"description": "Whiteboard markers (pack of 10)", "quantity": 25, "unit_price": 420.00}
+      ]
+    },
+    {
+      "id": "PO-1002", "vendor_id": "V002", "issued": "2026-07-01", "status": "open",
+      "description": "Q3 contract freight — Pune to Bengaluru, 20 FTL trips, billed in instalments",
+      "lines": [
+        {"description": "FTL freight Pune to Bengaluru, 32ft MXL", "quantity": 20, "unit_price": 20000.00}
+      ]
+    },
+    {
+      "id": "PO-1003", "vendor_id": "V003", "issued": "2026-09-01", "status": "open",
+      "description": "Facility services — September 2026",
+      "lines": [
+        {"description": "Housekeeping services, September 2026", "quantity": 1, "unit_price": 84000.00},
+        {"description": "Pest control treatment", "quantity": 1, "unit_price": 6500.00}
+      ]
+    },
+    {
+      "id": "PO-1004", "vendor_id": "V004", "issued": "2026-10-12", "status": "open",
+      "description": "Laptops for new finance team",
+      "lines": [
+        {"description": "Dell Latitude 5450 i5 16GB 512GB", "quantity": 6, "unit_price": 78500.00},
+        {"description": "Dell docking station WD19S", "quantity": 6, "unit_price": 14200.00}
+      ]
+    },
+    {
+      "id": "PO-1007", "vendor_id": "V004", "issued": "2026-04-01", "status": "open",
+      "description": "Annual IT support contract FY26-27",
+      "lines": [
+        {"description": "Annual maintenance contract, 40 endpoints", "quantity": 1, "unit_price": 120000.00}
+      ]
+    },
+    {
+      "id": "PO-1005", "vendor_id": "V005", "issued": "2026-10-01", "status": "open",
+      "description": "Diwali trade catalogue and POS material",
+      "lines": [
+        {"description": "Product catalogue print, A4 32pp", "quantity": 2000, "unit_price": 45.00},
+        {"description": "Point-of-sale standees", "quantity": 50, "unit_price": 600.00}
+      ]
+    },
+    {
+      "id": "PO-1006", "vendor_id": "V001", "issued": "2026-10-15", "status": "open",
+      "description": "Pantry supplies — November",
+      "lines": [
+        {"description": "Filter coffee powder 1kg", "quantity": 30, "unit_price": 640.00},
+        {"description": "Paper cups 150ml (pack of 100)", "quantity": 60, "unit_price": 185.00},
+        {"description": "Assorted tea bags (box of 100)", "quantity": 20, "unit_price": 390.00}
+      ]
+    }
+  ],
+  "ledger_seed": [
+    {
+      "vendor_id": "V002", "invoice_number": "BL/Q3/01", "invoice_date": "2026-08-30",
+      "po_id": "PO-1002", "subtotal": 160000.00, "total": 188800.00,
+      "lines": [{"description": "FTL freight Pune to Bengaluru, 32ft MXL", "quantity": 8, "unit_price": 20000.00}],
+      "status": "paid", "source": "Imported from ERP"
+    },
+    {
+      "vendor_id": "V003", "invoice_number": "AFS-42", "invoice_date": "2026-10-02",
+      "po_id": "PO-1003", "subtotal": 90500.00, "total": 106790.00,
+      "lines": [
+        {"description": "Housekeeping services, September 2026", "quantity": 1, "unit_price": 84000.00},
+        {"description": "Pest control treatment", "quantity": 1, "unit_price": 6500.00}
+      ],
+      "status": "paid", "source": "Imported from ERP"
+    }
+  ]
+}

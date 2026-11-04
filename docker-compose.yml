@@ -1,0 +1,18 @@
+services:
+  ledgerline:
+    build: .
+    image: ledgerline:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CLAUDE_MODEL: ${CLAUDE_MODEL:-claude-opus-5-5}
+      CLAUDE_EFFORT: ${CLAUDE_EFFORT:-low}
+      DEMO_PACING_MS: ${DEMO_PACING_MS:-450}
+      STATE_DIR: /state
+    volumes:
+      - ledgerline-state:/state   # runs, ledger and uploaded PDFs survive restarts
+
+volumes:
+  ledgerline-state:

@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ledgerline System Guide</title>
+<meta name="description" content="Ledgerline invoice processing system: how it works, with flowcharts, measured accuracy and AI model choice. Written in ASD-STE100 Simplified Technical English.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f3ef; --panel: #fbfaf7; --raised: #ffffff; --sunk: #ecebe5;
+  --line: #e2dfd7; --line-strong: #cdc9be;
+  --ink: #14213d; --ink-2: #3c4861; --ink-3: #636c80;
+  --accent: #1e3a6e; --accent-soft: #e4e9f2;
+  --sage: #36654a; --sage-mid: #5b8f6e; --sage-soft: #e2ece4;
+  --amber: #7f520d; --amber-mid: #c08a2e; --amber-soft: #f4e9d4;
+  --rust: #973826; --rust-mid: #c4614b; --rust-soft: #f4e1da;
+  --font: "Schibsted Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d121b; --panel: #121925; --raised: #172030; --sunk: #0a0f16;
+    --line: #222b3a; --line-strong: #2f3a4e;
+    --ink: #e8ebf1; --ink-2: #b6becd; --ink-3: #8b94a6;
+    --accent: #a8c0eb; --accent-soft: rgba(168,192,235,.12);
+    --sage: #95c6a4; --sage-mid: #6fa583; --sage-soft: rgba(149,198,164,.13);
+    --amber: #e5b56b; --amber-mid: #c99443; --amber-soft: rgba(229,181,107,.13);
+    --rust: #ee9d89; --rust-mid: #d4735d; --rust-soft: rgba(238,157,137,.13);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d121b; --panel: #121925; --raised: #172030; --sunk: #0a0f16;
+  --line: #222b3a; --line-strong: #2f3a4e;
+  --ink: #e8ebf1; --ink-2: #b6becd; --ink-3: #8b94a6;
+  --accent: #a8c0eb; --accent-soft: rgba(168,192,235,.12);
+  --sage: #95c6a4; --sage-mid: #6fa583; --sage-soft: rgba(149,198,164,.13);
+  --amber: #e5b56b; --amber-mid: #c99443; --amber-soft: rgba(229,181,107,.13);
+  --rust: #ee9d89; --rust-mid: #d4735d; --rust-soft: rgba(238,157,137,.13);
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 400 16px/1.62 var(--font); -webkit-font-smoothing: antialiased; }
+::selection { background: var(--sage-soft); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+a { color: var(--accent); text-underline-offset: 3px; }
+code, .mono { font-family: var(--mono); font-size: .86em; }
+code { background: var(--sunk); padding: .1em .4em; border-radius: 5px; }
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+
+.layout { display: grid; grid-template-columns: 250px minmax(0, 1fr); max-width: 1240px; margin: 0 auto; gap: 56px; padding: 0 32px; }
+.toc { position: sticky; top: 0; align-self: start; height: 100vh; overflow-y: auto; padding: 40px 0 32px; font-size: 13.5px; }
+.toc-title { font-weight: 650; letter-spacing: -.01em; margin-bottom: 10px; color: var(--ink); }
+.toc ol { list-style: none; margin: 0; padding: 0; counter-reset: t; }
+.toc li { counter-increment: t; }
+.toc a { display: grid; grid-template-columns: 26px 1fr; padding: 5px 8px; border-radius: 6px; color: var(--ink-2); text-decoration: none; }
+.toc a::before { content: counter(t); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.toc a:hover { background: var(--sunk); color: var(--ink); }
+.toc a.on { background: var(--panel); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+
+main { padding: 48px 0 96px; min-width: 0; }
+.hero { padding-bottom: 32px; border-bottom: 1px solid var(--line); margin-bottom: 8px; }
+.brandline { display: flex; align-items: center; gap: 10px; color: var(--ink-2); font-size: 14px; font-weight: 550; }
+.brandline svg { width: 28px; height: 28px; }
+h1 { font-size: clamp(2rem, 4vw, 2.9rem); line-height: 1.08; letter-spacing: -.035em; font-weight: 680; margin: 18px 0 14px; text-wrap: balance; }
+.lede { font-size: 18.5px; color: var(--ink-2); max-width: 64ch; margin: 0; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 22px; font-size: 13px; color: var(--ink-3); }
+.meta b { color: var(--ink-2); font-weight: 550; }
+
+section { padding-top: 56px; }
+h2 { font-size: 1.6rem; line-height: 1.2; letter-spacing: -.025em; font-weight: 650; margin: 0 0 14px; text-wrap: balance; display: flex; gap: 12px; align-items: baseline; }
+h2 .n { font-family: var(--mono); font-size: .95rem; color: var(--ink-3); font-weight: 500; }
+h3 { font-size: 1.12rem; letter-spacing: -.012em; font-weight: 620; margin: 34px 0 8px; }
+p, li { max-width: 70ch; }
+p { margin: 0 0 14px; }
+ul, ol { padding-left: 22px; margin: 0 0 16px; }
+li + li { margin-top: 5px; }
+strong { font-weight: 620; }
+
+.keyfacts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 28px 0 0; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow: hidden; }
+.keyfacts div { padding: 16px 18px; }
+.keyfacts div + div { border-left: 1px solid var(--line); }
+.keyfacts dt { font-size: 12.5px; color: var(--ink-3); }
+.keyfacts dd { margin: 3px 0 0; font-size: 15px; font-weight: 560; line-height: 1.35; }
+
+.rule { margin: 22px 0; padding: 18px 20px; background: var(--accent-soft); border-radius: 12px; }
+.rule b { display: block; font-size: 13px; color: var(--accent); font-weight: 600; margin-bottom: 4px; }
+.rule p { margin: 0; font-size: 17px; font-weight: 520; color: var(--ink); }
+
+figure { margin: 22px 0 26px; }
+.diagram { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px 18px; overflow-x: auto; }
+.diagram pre.mermaid { margin: 0; display: flex; justify-content: center; font-family: var(--mono); font-size: 12px; color: var(--ink-3); white-space: pre; }
+.diagram pre.mermaid svg { height: auto; }
+figcaption { font-size: 13px; color: var(--ink-3); margin-top: 8px; }
+
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--raised); margin: 16px 0 22px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th { text-align: left; font-weight: 560; font-size: 12.5px; color: var(--ink-3); background: var(--panel); padding: 10px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.c, th.c { text-align: center; font-variant-numeric: tabular-nums; }
+td.id { font-family: var(--mono); font-size: 13px; color: var(--ink-2); white-space: nowrap; }
+
+.tag { display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px; border-radius: 99px; font-size: 12.5px; font-weight: 560; white-space: nowrap; background: var(--sunk); color: var(--ink-2); }
+.tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .8; }
+.tag.ok { background: var(--sage-soft); color: var(--sage); }
+.tag.hold { background: var(--amber-soft); color: var(--amber); }
+.tag.rej { background: var(--rust-soft); color: var(--rust); }
+.full { color: var(--sage); font-weight: 600; }
+.part { color: var(--amber); font-weight: 600; }
+
+.note, .caution, .warning { border-radius: 10px; padding: 14px 18px; margin: 18px 0; font-size: 15px; }
+.note { background: var(--sunk); }
+.caution { background: var(--amber-soft); }
+.warning { background: var(--rust-soft); }
+.note b, .caution b, .warning b { display: block; font-size: 12.5px; letter-spacing: .02em; margin-bottom: 3px; }
+.caution b { color: var(--amber); }
+.warning b { color: var(--rust); }
+.note p:last-child, .caution p:last-child, .warning p:last-child { margin: 0; }
+
+.balance { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; margin: 18px 0; }
+.balance .row { display: grid; grid-template-columns: 90px minmax(0, 1fr) 170px; gap: 14px; align-items: center; font-size: 14px; margin: 9px 0; }
+.balance .lbl { color: var(--ink-2); }
+.balance .val { text-align: right; font-variant-numeric: tabular-nums; }
+.bar { position: relative; height: 14px; border-radius: 4px; background: var(--sunk); display: flex; overflow: visible; }
+.bar span { height: 100%; }
+.bar .prev { background: var(--ink-3); opacity: .45; }
+.bar .now { background: var(--sage-mid); }
+.bar .over { background: var(--rust-mid); }
+.bar .limit { position: absolute; top: -6px; bottom: -6px; width: 2px; background: var(--ink); left: calc(100% / 1.1); }
+.balance .legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--ink-2); margin-top: 14px; }
+.balance .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+.screens { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 18px 0; }
+.screen { border: 1px solid var(--line); border-radius: 12px; background: var(--panel); overflow: hidden; }
+.screen .wire { height: 120px; background: var(--sunk); padding: 12px; display: grid; gap: 6px; }
+.screen .body { padding: 14px 16px; font-size: 14px; }
+.screen .body b { display: block; font-size: 15px; margin-bottom: 4px; }
+.w { background: var(--raised); border: 1px solid var(--line); border-radius: 5px; }
+.wire.p { grid-template-columns: 1fr 1.4fr 1fr; }
+.wire.r { grid-template-rows: 26px 10px 1fr; }
+.wire.d { grid-template-rows: 30px 1fr 1fr; }
+.w.sage { background: var(--sage-soft); border-color: transparent; }
+.w.amber { background: var(--amber-soft); border-color: transparent; }
+
+.steps { counter-reset: s; list-style: none; padding: 0; }
+.steps li { counter-increment: s; position: relative; padding-left: 40px; margin: 10px 0; }
+.steps li::before { content: counter(s); position: absolute; left: 0; top: 1px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--ink); color: var(--bg); font-size: 13px; font-weight: 600; }
+
+.big3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; margin: 18px 0; background: var(--panel); }
+.big3 > div { padding: 18px 20px; }
+.big3 > div + div { border-left: 1px solid var(--line); }
+.big3 .k { font-size: 13px; color: var(--ink-3); }
+.big3 .v { font-size: 28px; font-weight: 650; letter-spacing: -.03em; font-variant-numeric: tabular-nums; margin: 2px 0; }
+.big3 .s { font-size: 13.5px; color: var(--ink-2); }
+
+footer { margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 13px; color: var(--ink-3); }
+
+@media (max-width: 980px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0 16px; }
+  .toc { position: static; height: auto; padding: 24px 0 0; }
+  .toc ol { columns: 2; column-gap: 12px; }
+  main { padding-top: 24px; }
+  .keyfacts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .keyfacts div:nth-child(3) { border-left: 0; }
+  .keyfacts div:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .screens, .big3 { grid-template-columns: minmax(0, 1fr); }
+  .big3 > div + div { border-left: 0; border-top: 1px solid var(--line); }
+}
+@media (max-width: 560px) {
+  body { font-size: 15.5px; }
+  .toc ol { columns: 1; }
+  .keyfacts { grid-template-columns: minmax(0, 1fr); }
+  .keyfacts div + div { border-left: 0; border-top: 1px solid var(--line); }
+  .balance .row { grid-template-columns: 74px minmax(0, 1fr); }
+  .balance .val { grid-column: 2; text-align: left; margin-top: -6px; font-size: 13px; color: var(--ink-2); }
+  h2 { font-size: 1.35rem; }
+}
+@media print {
+  .toc { display: none; }
+  .layout { grid-template-columns: 1fr; }
+  section { break-inside: avoid-page; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="toc" aria-label="Contents">
+    <div class="toc-title">Contents</div>
+    <ol>
+      <li><a href="#purpose">Purpose</a></li>
+      <li><a href="#parts">Main parts</a></li>
+      <li><a href="#stages">The 7 stages</a></li>
+      <li><a href="#reader">The reader</a></li>
+      <li><a href="#match">PO match</a></li>
+      <li><a href="#checks">The checks</a></li>
+      <li><a href="#duplicates">Duplicate check</a></li>
+      <li><a href="#balance">PO balance check</a></li>
+      <li><a href="#decision">Decision and routing</a></li>
+      <li><a href="#live">Live view</a></li>
+      <li><a href="#screens">The screens</a></li>
+      <li><a href="#scenarios">Test scenarios</a></li>
+      <li><a href="#accuracy">Accuracy of results</a></li>
+      <li><a href="#models">AI model: Claude or Gemini</a></li>
+      <li><a href="#operate">Procedure: operate</a></li>
+      <li><a href="#limits">Assumptions and limits</a></li>
+      <li><a href="#terms">Terms</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <div class="brandline">
+        <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--ink)"/><path d="M9 11h14M9 16h9M9 21h6" stroke="#b9d3bf" stroke-width="2.4" stroke-linecap="round"/><path d="M19 21.5l2.2 2.2 4.3-4.6" stroke="#b9d3bf" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Ledgerline · Invoice Desk
+      </div>
+      <h1>How the invoice system works</h1>
+      <p class="lede">This document tells you how Ledgerline changes a vendor invoice PDF into a payment decision. It shows each part, each stage and each check. It also gives the measured accuracy of the results.</p>
+      <div class="meta">
+        <span><b>Case study:</b> AI Solutions Analyst, PS-1 (Finance / AP)</span>
+        <span><b>Version:</b> 1.0, 4 Nov 2026</span>
+        <span><b>Writing rules:</b> ASD-STE100 Simplified Technical English</span>
+        <span><b>Scope:</b> the main functions (approximately 80% of the system)</span>
+      </div>
+      <dl class="keyfacts">
+        <div><dt>Input</dt><dd>One invoice PDF (digital or scanned)</dd></div>
+        <div><dt>Output</dt><dd>Approved, On hold or Rejected, with reasons</dd></div>
+        <div><dt>Checks</dt><dd>13 fixed rules, each with an ID</dd></div>
+        <div><dt>Measured accuracy</dt><dd>7 of 7 correct decisions in each test set</dd></div>
+      </dl>
+    </header>
+
+    <section id="purpose">
+      <h2><span class="n">01</span>Purpose</h2>
+      <p>Ledgerline processes vendor invoices for an accounts payable (AP) team. The input is one invoice as a PDF file. The output is one decision: <span class="tag ok">Approved</span> <span class="tag hold">On hold</span> or <span class="tag rej">Rejected</span>.</p>
+      <p>The system shows each step while it operates. It also writes the reason for each decision. A person can examine each decision later.</p>
+      <div class="rule">
+        <b>Main design rule</b>
+        <p>The AI only reads the invoice. Fixed rules make the decision.</p>
+      </div>
+      <p>Thus, the system always gives the same decision for the same data. The AI cannot approve a payment. Each decision has a list of checks that a person can read.</p>
+    </section>
+
+    <section id="parts">
+      <h2><span class="n">02</span>Main parts</h2>
+      <p>The system has seven main parts. The diagram shows how they connect.</p>
+      <figure>
+        <div class="diagram"><pre class="mermaid">
+flowchart TB
+  B["Browser&lt;br&gt;the UI"] -- "Send PDF" --> S["Web server&lt;br&gt;FastAPI"]
+  S -. "Live updates" .-> B
+  S -- "Start" --> P["Pipeline&lt;br&gt;7 stages"]
+  P --> R["Reader&lt;br&gt;AI model or OCR"]
+  P --> E["Rules engine&lt;br&gt;13 checks"]
+  P --> D[("Database&lt;br&gt;runs and ledger")]
+  E --> M[("Master data&lt;br&gt;vendors, POs, limits")]
+        </pre></div>
+        <figcaption>Figure 1. Main parts of the system</figcaption>
+      </figure>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Part</th><th>File</th><th>Function</th></tr></thead>
+        <tbody>
+          <tr><td>Browser (UI)</td><td class="id">static/</td><td>Sends the PDF. Shows the stages, the decision and the history.</td></tr>
+          <tr><td>Web server</td><td class="id">app/main.py</td><td>Receives requests. Starts one pipeline for each invoice.</td></tr>
+          <tr><td>Pipeline</td><td class="id">app/pipeline.py</td><td>Runs the 7 stages in sequence. Saves each result.</td></tr>
+          <tr><td>Reader</td><td class="id">app/extract.py</td><td>Changes the PDF into structured fields.</td></tr>
+          <tr><td>Rules engine</td><td class="id">app/rules.py</td><td>Does the checks. Makes the decision.</td></tr>
+          <tr><td>Database</td><td class="id">app/db.py</td><td>Keeps a full record of each run. Keeps the ledger of approved invoices.</td></tr>
+          <tr><td>Master data</td><td class="id">data/master.json</td><td>Contains the approved vendors, the purchase orders (POs) and the limits.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="stages">
+      <h2><span class="n">03</span>The 7 stages</h2>
+      <p>The pipeline does the stages in this sequence. Each stage gets a status: done, warning, hold or fail. The UI shows the status of each stage while it operates.</p>
+      <figure>
+        <div class="diagram"><pre class="mermaid">
+flowchart TD
+  IN(["Invoice PDF"]) --> S1
+  S1["Stage 1 · Receive document&lt;br&gt;page count, text or scan, fingerprint"] --> S2
+  S2["Stage 2 · Read invoice&lt;br&gt;AI model or OCR reads the fields"] --> S3
+  S3["Stage 3 · Identify vendor&lt;br&gt;GSTIN match, then name match"] --> S4
+  S4["Stage 4 · Validate invoice&lt;br&gt;fields, arithmetic, GST, bank, date"] --> S5
+  S5["Stage 5 · Match purchase order&lt;br&gt;printed PO, or the most probable PO"] --> S6
+  S6["Stage 6 · Run controls&lt;br&gt;duplicate, unit price, PO balance"] --> S7
+  S7["Stage 7 · Decide and route&lt;br&gt;decision, queue, next steps"] --> OUT
+  OUT{{"Approved / On hold / Rejected"}}
+        </pre></div>
+        <figcaption>Figure 2. The sequence of stages</figcaption>
+      </figure>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Stage</th><th>What the system does</th><th>Tool</th></tr></thead>
+        <tbody>
+          <tr><td>1. Receive document</td><td>Counts the pages. Finds if the PDF has text or is a scan. Makes a fingerprint (SHA-256) of the file.</td><td>pypdf</td></tr>
+          <tr><td>2. Read invoice</td><td>Reads the vendor, GSTIN, invoice number, dates, PO number, lines, tax, total, bank details and notes.</td><td>AI model, or OCR</td></tr>
+          <tr><td>3. Identify vendor</td><td>Compares the GSTIN with the vendor list. If there is no match, compares the name.</td><td>Rules</td></tr>
+          <tr><td>4. Validate invoice</td><td>Checks the fields, the vendor status, the arithmetic, the GST rate, the bank details and the date.</td><td>Rules</td></tr>
+          <tr><td>5. Match purchase order</td><td>Uses the PO number on the invoice. If there is no PO number, it finds the most probable PO.</td><td>Rules</td></tr>
+          <tr><td>6. Run controls</td><td>Looks for duplicates. Compares unit prices with the PO. Compares the total with the remaining PO balance.</td><td>Rules and ledger</td></tr>
+          <tr><td>7. Decide and route</td><td>Makes the decision. Sends the invoice to a queue. Writes the next steps and a draft email.</td><td>Rules</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="reader">
+      <h2><span class="n">04</span>The reader</h2>
+      <p>The reader is the only part that uses AI. It changes the PDF into structured fields. All readers give the fields in the same format. Thus, you can replace one reader with a different reader. The rules do not change.</p>
+      <figure>
+        <div class="diagram"><pre class="mermaid">
+flowchart TD
+  A{"AI key set?"} -- "Yes" --> C["AI model reads the PDF&lt;br&gt;output: JSON in a fixed schema"]
+  A -- "No" --> L["Local reader"]
+  C --> V{"Valid result?"}
+  V -- "Yes" --> F
+  V -- "No, or error" --> L
+  L --> T{"Text layer?"}
+  T -- "Yes" --> PT["pdftotext"]
+  T -- "No, it is a scan" --> OCR["Tesseract OCR"]
+  PT --> PP["Pattern parser"]
+  OCR --> PP
+  PP --> F(["Structured fields&lt;br&gt;same format for all readers"])
+        </pre></div>
+        <figcaption>Figure 3. How the system selects a reader</figcaption>
+      </figure>
+      <ul>
+        <li>The AI model reads only. It does not calculate or correct values.</li>
+        <li>If a value is not on the invoice, the field is empty (null). The AI must not guess.</li>
+        <li>If the AI fails, the system does not stop. It uses the local reader and writes the reason in the log.</li>
+        <li>The reader also gives a list of fields that it read with low confidence. Check R08 shows this list.</li>
+      </ul>
+    </section>
+
+    <section id="match">
+      <h2><span class="n">05</span>Purchase order match</h2>
+      <p>Each invoice must agree with a purchase order (PO). Some invoices show the PO number. Some invoices do not.</p>
+      <figure>
+        <div class="diagram"><pre class="mermaid">
+flowchart TD
+  Q{"PO number printed?"} -- "Yes" --> E{"PO exists?"}
+  Q -- "No" --> S["Get the open POs of this vendor.&lt;br&gt;Score each PO:&lt;br&gt;60% line similarity + 30% amount fit&lt;br&gt;maximum score = 90%"]
+  E -- "No" --> H1["HOLD: PO not found"]
+  E -- "Yes" --> V{"Same vendor?"}
+  V -- "Yes" --> OK["PASS"]
+  V -- "No" --> H2["HOLD: PO of a different vendor"]
+  S --> B{"Best score&lt;br&gt;75% or more?"}
+  B -- "Yes" --> H3["HOLD: a person must&lt;br&gt;confirm the suggested PO"]
+  B -- "No" --> H4["HOLD: no PO found"]
+  class OK ok
+  class H1,H2,H3,H4 hold
+        </pre></div>
+        <figcaption>Figure 4. How the system finds the purchase order</figcaption>
+      </figure>
+      <div class="note"><b>NOTE</b><p>The maximum score is 90% because a PO that is not printed on the invoice is never certain. An inferred PO always goes to a person. The system never approves it automatically.</p></div>
+    </section>
+
+    <section id="checks">
+      <h2><span class="n">06</span>The checks</h2>
+      <p>The rules engine does 13 checks. Each check has an ID. Each check has a result: pass, warning or fail. A failed check has a severity: reject or hold.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>ID</th><th>Check</th><th>If it fails</th><th>Stage</th></tr></thead>
+        <tbody>
+          <tr><td class="id">R01</td><td>Required fields are present</td><td><span class="tag hold">Hold</span></td><td>Validate</td></tr>
+          <tr><td class="id">R02</td><td>Vendor is approved</td><td><span class="tag rej">Reject</span></td><td>Validate</td></tr>
+          <tr><td class="id">R03</td><td>GSTIN is the same as on file</td><td><span class="tag hold">Hold</span></td><td>Validate</td></tr>
+          <tr><td class="id">R04</td><td>Arithmetic is correct (lines + tax = total)</td><td><span class="tag hold">Hold</span></td><td>Validate</td></tr>
+          <tr><td class="id">R05</td><td>GST rate is correct for the vendor</td><td><span class="tag hold">Hold</span></td><td>Validate</td></tr>
+          <tr><td class="id">R06</td><td>Bank details are the same as on file</td><td><span class="tag hold">Hold</span> fraud risk</td><td>Validate</td></tr>
+          <tr><td class="id">R07</td><td>Invoice date is possible</td><td><span class="tag hold">Hold</span></td><td>Validate</td></tr>
+          <tr><td class="id">R08</td><td>Fields were read with good confidence</td><td><span class="tag">Warning only</span></td><td>Validate</td></tr>
+          <tr><td class="id">R09</td><td>Purchase order is found</td><td><span class="tag hold">Hold</span></td><td>Match</td></tr>
+          <tr><td class="id">R10</td><td>Invoice is not a duplicate</td><td><span class="tag rej">Reject</span> exact · <span class="tag hold">Hold</span> possible</td><td>Controls</td></tr>
+          <tr><td class="id">R11</td><td>Each line is on the PO</td><td><span class="tag hold">Hold</span></td><td>Controls</td></tr>
+          <tr><td class="id">R12</td><td>Unit prices are within 2% of the PO</td><td><span class="tag hold">Hold</span></td><td>Controls</td></tr>
+          <tr><td class="id">R13</td><td>Total is within the remaining PO balance</td><td><span class="tag hold">Hold</span></td><td>Controls</td></tr>
+        </tbody>
+      </table></div>
+      <p>The limits are in the file <code>data/master.json</code>. You can change them without a change to the code.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Limit</th><th class="num">Value</th></tr></thead>
+        <tbody>
+          <tr><td>Unit price tolerance for each line, against the PO</td><td class="num">±2%</td></tr>
+          <tr><td>Overrun permitted on the PO balance</td><td class="num">0%</td></tr>
+          <tr><td>Time window for same-vendor, same-amount duplicates</td><td class="num">7 days</td></tr>
+          <tr><td>Minimum score to suggest an inferred PO</td><td class="num">75%</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="duplicates">
+      <h2><span class="n">07</span>Duplicate check</h2>
+      <p>A vendor can send the same invoice two times. Sometimes the number has a different format. The system removes symbols and zeros before it compares numbers. Thus, “AFS/0042” and “AFS-42” are the same invoice.</p>
+      <figure>
+        <div class="diagram"><pre class="mermaid">
+flowchart TD
+  A{"Same file&lt;br&gt;as before?"} -- "Yes" --> R1["REJECT"]
+  A -- "No" --> B{"Same vendor,&lt;br&gt;same number?"}
+  B -- "Yes" --> R2["REJECT"]
+  B -- "No" --> C{"Same number without&lt;br&gt;symbols and zeros,&lt;br&gt;same amount?"}
+  C -- "Yes" --> R3["REJECT"]
+  C -- "No" --> D{"Same amount,&lt;br&gt;7 days or less?"}
+  D -- "Yes" --> H["HOLD: possible duplicate"]
+  D -- "No" --> P["PASS"]
+  class R1,R2,R3 rej
+  class H hold
+  class P ok
+        </pre></div>
+        <figcaption>Figure 5. The duplicate check (R10)</figcaption>
+      </figure>
+      <div class="note"><b>NOTE</b><p>The time window is short (7 days) on purpose. Many vendors send the same amount each month for a contract. A long window holds these correct invoices.</p></div>
+    </section>
+
+    <section id="balance">
+      <h2><span class="n">08</span>PO balance check</h2>
+      <p>A vendor can split one PO into many invoices. Each invoice can look correct by itself. The system adds all approved invoices for the PO. Then it adds the new invoice. If the sum is more than the PO, the invoice goes on hold.</p>
+      <div class="balance" role="img" aria-label="PO-1002 example: 4 lakh ordered. Invoice 1 1.6 lakh and invoice 2 1.6 lakh use 3.2 lakh. Invoice 3 of 1.2 lakh goes over the PO by 40 thousand.">
+        <div style="font-weight:600">Example: PO-1002, 20 trips, ₹4,00,000</div>
+        <div class="row"><span class="lbl">Invoice 1</span><div class="bar"><span class="prev" style="width:36.36%"></span><span class="limit"></span></div><span class="val">₹1,60,000 · paid</span></div>
+        <div class="row"><span class="lbl">Invoice 2</span><div class="bar"><span class="prev" style="width:36.36%"></span><span class="now" style="width:36.36%"></span><span class="limit"></span></div><span class="val">₹1,60,000 · approved</span></div>
+        <div class="row"><span class="lbl">Invoice 3</span><div class="bar"><span class="prev" style="width:72.72%"></span><span class="now" style="width:18.18%"></span><span class="over" style="width:9.09%"></span><span class="limit"></span></div><span class="val">₹1,20,000 · on hold</span></div>
+        <div class="legend">
+          <span><i style="background:var(--ink-3);opacity:.45"></i>Invoiced before</span>
+          <span><i style="background:var(--sage-mid)"></i>This invoice, inside the PO</span>
+          <span><i style="background:var(--rust-mid)"></i>Over the PO by ₹40,000</span>
+          <span><i style="background:var(--ink);width:2px"></i>PO limit</span>
+        </div>
+      </div>
+      <p>Invoice 3 bills 6 trips. The earlier invoices billed 16 trips. The total is 22 trips, but the PO is for 20 trips. Thus, check R13 fails and the invoice goes on hold.</p>
+      <div class="caution"><b>CAUTION</b><p>This check uses the ledger. The result changes with the sequence of the invoices. Process invoice 2 before invoice 3.</p></div>
+    </section>
+
+    <section id="decision">
+      <h2><span class="n">09</span>Decision and routing</h2>
+      <p>After all checks, the system makes one decision. A reject check is more important than a hold check.</p>
+      <figure>
+        <div class="diagram"><pre class="mermaid">
+flowchart TD
+  A(["All checks are complete"]) --> B{"A REJECT&lt;br&gt;check failed?"}
+  B -- "Yes" --> RJ["REJECTED&lt;br&gt;no payment, vendor email draft"]
+  B -- "No" --> C{"A HOLD&lt;br&gt;check failed?"}
+  C -- "Yes" --> HD["ON HOLD"]
+  C -- "No" --> AP["APPROVED"]
+  HD --> PR{"Person&lt;br&gt;reviews"}
+  PR -- "Approve" --> AP2["Approved by reviewer"]
+  PR -- "Reject" --> RJ2["Rejected by reviewer"]
+  AP --> L["Post to the ledger.&lt;br&gt;The PO balance decreases."]
+  AP2 --> L
+  class RJ,RJ2 rej
+  class HD hold
+  class AP,AP2,L ok
+        </pre></div>
+        <figcaption>Figure 6. How the system makes the decision</figcaption>
+      </figure>
+      <p>The system also sends each decision to a queue. The queue tells the team who must do the next step.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Cause</th><th>Queue</th></tr></thead>
+        <tbody>
+          <tr><td>All checks pass</td><td>Payment run</td></tr>
+          <tr><td>Bank details changed</td><td>Treasury verification</td></tr>
+          <tr><td>Unit price or PO balance problem, unknown vendor</td><td>Procurement</td></tr>
+          <tr><td>Duplicate, inferred PO, GSTIN or GST rate problem</td><td>AP review</td></tr>
+          <tr><td>Fields missing, arithmetic not correct</td><td>Vendor follow-up</td></tr>
+        </tbody>
+      </table></div>
+      <p>When the vendor must send something, the system writes a draft email. The system does not send the email. A person reads it first.</p>
+    </section>
+
+    <section id="live">
+      <h2><span class="n">10</span>Live view</h2>
+      <p>The UI shows each stage while the pipeline operates. The diagram shows the messages between the parts.</p>
+      <figure>
+        <div class="diagram"><pre class="mermaid">
+sequenceDiagram
+  participant B as Browser
+  participant S as Web server
+  participant P as Pipeline
+  participant D as Database
+  B->>S: Send the PDF
+  S->>P: Start the pipeline
+  S-->>B: Run ID
+  B->>S: Open the event stream
+  loop For each stage
+    P->>D: Save the stage result
+    S->>D: Read the run record, each 0.15 s
+    S-->>B: Send the run data
+    Note over B: The UI updates one stage
+  end
+  S-->>B: Send the end event
+        </pre></div>
+        <figcaption>Figure 7. Messages during one run (Server-Sent Events)</figcaption>
+      </figure>
+      <ul>
+        <li>The pipeline saves the run record after each stage.</li>
+        <li>The browser changes only the stage that changed. Thus, the line moves down the timeline.</li>
+        <li>Each stage stays visible for a minimum of 0.45 seconds. You can set this time to 0 with <code>DEMO_PACING_MS=0</code>.</li>
+      </ul>
+    </section>
+
+    <section id="screens">
+      <h2><span class="n">11</span>The screens</h2>
+      <div class="screens">
+        <div class="screen">
+          <div class="wire p" aria-hidden="true"><div class="w"></div><div class="w"></div><div class="w amber"></div></div>
+          <div class="body"><b>Process</b>Upload area, reader selection, 7 demo scenarios, live timeline, decision panel, PDF viewer.</div>
+        </div>
+        <div class="screen">
+          <div class="wire r" aria-hidden="true"><div class="w"></div><div class="w sage"></div><div class="w"></div></div>
+          <div class="body"><b>Runs</b>Summary row, decision bar, filter, search and a table of all runs. Click a row to see the full run again.</div>
+        </div>
+        <div class="screen">
+          <div class="wire d" aria-hidden="true"><div class="w"></div><div class="w"></div><div class="w"></div></div>
+          <div class="body"><b>POs and vendors</b>Policy limits, PO balances, the ledger and the vendor list.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="scenarios">
+      <h2><span class="n">12</span>Test scenarios</h2>
+      <p>The folder <code>samples/</code> contains 7 invoices. Each invoice tests one behaviour.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>#</th><th>Scenario</th><th>Result</th><th>Check that decides</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td>Clean invoice. All values agree with PO-1001.</td><td><span class="tag ok">Approved</span></td><td>All pass</td></tr>
+          <tr><td>2</td><td>Instalment 2 of 3. Same amount as instalment 1.</td><td><span class="tag ok">Approved</span></td><td>All pass</td></tr>
+          <tr><td>3</td><td>Instalment 3. The sum is more than the PO.</td><td><span class="tag hold">On hold</span></td><td class="id">R13</td></tr>
+          <tr><td>4</td><td>A paid invoice sent again as “AFS/0042”.</td><td><span class="tag rej">Rejected</span></td><td class="id">R10</td></tr>
+          <tr><td>5</td><td>Scanned invoice. No PO number is printed.</td><td><span class="tag hold">On hold</span></td><td class="id">R09</td></tr>
+          <tr><td>6</td><td>Total is correct, but one unit price is 10% more than the PO.</td><td><span class="tag hold">On hold</span></td><td class="id">R12</td></tr>
+          <tr><td>7</td><td>New bank account on the invoice.</td><td><span class="tag hold">On hold</span></td><td class="id">R06</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="accuracy">
+      <h2><span class="n">13</span>Accuracy of results</h2>
+      <p>We measured the accuracy with the script <code>scripts/evaluate.py</code>. The script compares each result with the known correct value. The correct values come from the data that made the sample PDFs.</p>
+
+      <h3>Method</h3>
+      <ul>
+        <li><strong>Reader:</strong> the local reader (pdftotext and Tesseract OCR). We did not measure Claude or Gemini. No AI key was available during the test.</li>
+        <li><strong>Field accuracy:</strong> 11 fields for each invoice: GSTIN, invoice number, invoice date, due date, PO number, subtotal, tax, total, bank account, IFSC and all line items.</li>
+        <li><strong>Decision accuracy:</strong> the decision is the expected decision.</li>
+        <li><strong>Right reason:</strong> the decision is correct, and the expected check caused it.</li>
+      </ul>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Test set</th><th>Contents</th></tr></thead>
+        <tbody>
+          <tr><td>Original</td><td>The 7 samples as supplied: 6 digital PDFs and 1 scan.</td></tr>
+          <tr><td>Light scans</td><td>All 7 invoices as scans: 170 dpi, 0.45° skew, light noise.</td></tr>
+          <tr><td>Heavy scans</td><td>All 7 invoices as poor scans: 120 dpi, 0.9° skew, more noise and blur.</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>Results</h3>
+      <div class="big3">
+        <div><div class="k">Original</div><div class="v">100%</div><div class="s">fields correct · 7/7 decisions · 7/7 right reason</div></div>
+        <div><div class="k">Light scans</div><div class="v">92.2%</div><div class="s">fields correct · 7/7 decisions · 6/7 right reason</div></div>
+        <div><div class="k">Heavy scans</div><div class="v">90.9%</div><div class="s">fields correct · 7/7 decisions · 6/7 right reason</div></div>
+      </div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Field</th><th class="c">Original</th><th class="c">Light scans</th><th class="c">Heavy scans</th></tr></thead>
+        <tbody>
+          <tr><td>Invoice date</td><td class="c full">7/7</td><td class="c full">7/7</td><td class="c full">7/7</td></tr>
+          <tr><td>Due date</td><td class="c full">7/7</td><td class="c full">7/7</td><td class="c full">7/7</td></tr>
+          <tr><td>PO number</td><td class="c full">7/7</td><td class="c full">7/7</td><td class="c full">7/7</td></tr>
+          <tr><td>Subtotal</td><td class="c full">7/7</td><td class="c full">7/7</td><td class="c full">7/7</td></tr>
+          <tr><td>Tax</td><td class="c full">7/7</td><td class="c full">7/7</td><td class="c full">7/7</td></tr>
+          <tr><td>Total</td><td class="c full">7/7</td><td class="c full">7/7</td><td class="c full">7/7</td></tr>
+          <tr><td>Invoice number</td><td class="c full">7/7</td><td class="c full">7/7</td><td class="c part">5/7</td></tr>
+          <tr><td>Vendor GSTIN</td><td class="c full">7/7</td><td class="c part">6/7</td><td class="c part">6/7</td></tr>
+          <tr><td>Bank account</td><td class="c full">7/7</td><td class="c part">5/7</td><td class="c part">6/7</td></tr>
+          <tr><td>IFSC code</td><td class="c full">7/7</td><td class="c part">5/7</td><td class="c full">7/7</td></tr>
+          <tr><td>All line items</td><td class="c full">7/7</td><td class="c part">6/7</td><td class="c part">4/7</td></tr>
+          <tr><td><strong>All fields</strong></td><td class="c"><strong>77/77</strong></td><td class="c"><strong>71/77</strong></td><td class="c"><strong>70/77</strong></td></tr>
+          <tr><td>Average time per invoice</td><td class="c">0.6 s</td><td class="c">3.4 s</td><td class="c">4.3 s</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>What the results show</h3>
+      <ol>
+        <li>On digital PDFs, the local reader read all fields correctly.</li>
+        <li>On scans, the reader made errors in long codes: GSTIN, bank numbers, invoice numbers and line items. Dates and totals were always correct.</li>
+        <li><strong>No reading error caused a wrong approval.</strong> When the reader made an error, a check found a problem. Usually, check R04 (arithmetic) failed. Thus, the invoice went on hold for a person. The system fails safe.</li>
+        <li>In 2 cases, the decision was correct but the reason was different. Invoice 6 went on hold because of R04 (arithmetic), not R12 (unit price). The person sees a different reason.</li>
+        <li>If the reader cannot read the bank account, check R06 does not fail. The payment run must always use the account in the vendor master, not the account on the invoice.</li>
+      </ol>
+      <div class="warning"><b>WARNING</b><p>These results come from 7 invoices in 3 layouts that we made. Real invoices have more formats, handwriting, stamps and pages. Do not use these numbers as the accuracy on real invoices.</p></div>
+
+      <h3>Measure the AI reader</h3>
+      <p>We expect an AI reader to read scans better than OCR, but we did not measure it. Do this procedure before the demo:</p>
+      <ol class="steps">
+        <li>Set the AI key: <code>export ANTHROPIC_API_KEY=...</code></li>
+        <li>Run the script: <code>.venv/bin/python scripts/evaluate.py --engine claude</code></li>
+        <li>Read the results in the terminal and in <code>data/eval_claude.json</code>.</li>
+        <li>Put the new numbers in this section.</li>
+      </ol>
+      <div class="caution"><b>CAUTION</b><p>The script clears the demo database. Run it before the demo, not during the demo.</p></div>
+    </section>
+
+    <section id="models">
+      <h2><span class="n">14</span>AI model: Claude or Gemini</h2>
+      <p><strong>Claude is not necessary.</strong> The case study permits any AI model. In this system, the AI does only one task: stage 2, read the invoice. All other stages are fixed rules. They do not change when the AI model changes.</p>
+      <p>Gemini can do the same task. It reads PDFs directly, also scanned PDFs. It can also give JSON in a fixed schema. A limit of 1,500 requests is sufficient. One invoice uses one request.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th></th><th>Claude</th><th>Gemini</th><th>Local reader</th></tr></thead>
+        <tbody>
+          <tr><td>Status in the system</td><td>Installed, not tested</td><td>Not installed (approximately 40 lines of code)</td><td>Installed and measured</td></tr>
+          <tr><td>Reads scanned PDFs</td><td>Yes</td><td>Yes</td><td>Yes, with OCR errors</td></tr>
+          <tr><td>JSON in a fixed schema</td><td>Yes</td><td>Yes (different schema format)</td><td>Yes (pattern parser)</td></tr>
+          <tr><td>Cost</td><td>Paid key</td><td>Free tier available</td><td>Free</td></tr>
+          <tr><td>Internet necessary</td><td>Yes</td><td>Yes</td><td>No</td></tr>
+        </tbody>
+      </table></div>
+      <h3>Changes necessary for Gemini</h3>
+      <ol>
+        <li>Add a Gemini reader in <code>app/extract.py</code>. It must give the same fields as the Claude reader.</li>
+        <li>Add the setting <code>GEMINI_API_KEY</code>. When this key is set, the system uses Gemini.</li>
+        <li>Add a “Gemini” option to the reader selection in the UI.</li>
+        <li>Keep the local reader as the fallback.</li>
+      </ol>
+      <div class="caution"><b>CAUTION</b><p>Free keys also have a limit for each minute. Run “Run all seven in order” one time before the demo to make sure that the limit is sufficient.</p></div>
+      <div class="note"><b>NOTE</b><p>On the free tier, Google can use the data that you send to improve its products. This is satisfactory for the test invoices. For real invoices, use a paid tier or an enterprise agreement.</p></div>
+    </section>
+
+    <section id="operate">
+      <h2><span class="n">15</span>Procedure: operate the system</h2>
+      <ol class="steps">
+        <li>Open a terminal in the folder <code>invoice-desk</code>.</li>
+        <li>Set the AI key, if you have one: <code>export ANTHROPIC_API_KEY=...</code></li>
+        <li>Start the server: <code>.venv/bin/uvicorn app.main:app --port 8000</code></li>
+        <li>Open <code>http://localhost:8000</code> in a browser.</li>
+        <li>Click <strong>Reset demo</strong> to clear old data.</li>
+        <li>Click a scenario, or drop an invoice PDF on the upload area.</li>
+        <li>Look at the stages while they operate.</li>
+        <li>Click a stage to see its details.</li>
+        <li>For an invoice on hold, write a note. Then click <strong>Approve and post</strong> or <strong>Reject</strong>.</li>
+        <li>Click <strong>Runs</strong> to see the history of all invoices.</li>
+      </ol>
+      <div class="caution"><b>CAUTION</b><p>If you send the same file two times, the system rejects the second file as a duplicate. Click <strong>Reset demo</strong> before each new demonstration.</p></div>
+    </section>
+
+    <section id="limits">
+      <h2><span class="n">16</span>Assumptions and limits</h2>
+      <ul>
+        <li>The buyer is one company in India. All amounts are in INR. The system accepts CGST + SGST and IGST.</li>
+        <li>The PO balance uses the subtotal before tax. A different check (R05) examines the tax.</li>
+        <li>The ledger starts with 2 invoices “imported from ERP”. Thus, the duplicate and PO balance checks have history.</li>
+        <li>The upload area replaces an email inbox. The same pipeline can receive invoices from an inbox.</li>
+        <li>The system compares the invoice with the PO only. It does not compare with the goods receipt (no 3-way match).</li>
+        <li>The system does not make payments. It sends approved invoices to the payment run queue.</li>
+      </ul>
+    </section>
+
+    <section id="terms">
+      <h2><span class="n">17</span>Terms</h2>
+      <div class="table-wrap"><table>
+        <tbody>
+          <tr><td><strong>AP</strong></td><td>Accounts payable. The team that pays vendors.</td></tr>
+          <tr><td><strong>PO</strong></td><td>Purchase order. The document that approves a purchase before the invoice.</td></tr>
+          <tr><td><strong>GSTIN</strong></td><td>The tax registration number of a company in India.</td></tr>
+          <tr><td><strong>IFSC</strong></td><td>The code that identifies a bank branch in India.</td></tr>
+          <tr><td><strong>Ledger</strong></td><td>The list of invoices that are approved for payment.</td></tr>
+          <tr><td><strong>OCR</strong></td><td>Optical character recognition. Software that reads text in an image.</td></tr>
+          <tr><td><strong>Fingerprint</strong></td><td>A SHA-256 value of the file. Two identical files have the same value.</td></tr>
+          <tr><td><strong>SSE</strong></td><td>Server-Sent Events. The method that sends live updates to the browser.</td></tr>
+          <tr><td><strong>Fail safe</strong></td><td>When an error occurs, the system goes to the safe state (on hold), not to approval.</td></tr>
+        </tbody>
+      </table></div>
+      <footer>Ledgerline · Invoice Desk · System guide v1.0 · Accuracy measured on 4 Nov 2026 with the local reader. The diagrams need an internet connection to draw. Without a connection, they show as text.</footer>
+    </section>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
+<script>
+(function () {
+  // Contents: mark the section in view
+  var links = Array.prototype.slice.call(document.querySelectorAll(".toc a"));
+  if ("IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) links.forEach(function (a) { a.classList.toggle("on", a.getAttribute("href") === "#" + e.target.id); });
+      });
+    }, { rootMargin: "-20% 0px -70% 0px" });
+    document.querySelectorAll("main section[id]").forEach(function (s) { io.observe(s); });
+  }
+
+  if (!window.mermaid) return; // offline: diagrams stay as readable text
+  var css = getComputedStyle(document.documentElement);
+  // Mermaid style syntax splits on commas, so translucent rgba() tokens are blended
+  // over the panel colour into solid hex first.
+  var hex = function (c) {
+    var m = /rgba?\(([^)]+)\)/.exec(c);
+    if (!m) return c;
+    var p = m[1].split(",").map(function (x) { return parseFloat(x); });
+    var a = p.length > 3 ? p[3] : 1;
+    var bg = css.getPropertyValue("--panel").trim().replace("#", "");
+    var base = [0, 2, 4].map(function (i) { return parseInt(bg.substr(i, 2), 16); });
+    return "#" + [0, 1, 2].map(function (i) {
+      var x = Math.round(p[i] * a + base[i] * (1 - a));
+      return (x < 16 ? "0" : "") + x.toString(16);
+    }).join("");
+  };
+  var v = function (n) { return hex(css.getPropertyValue(n).trim()); };
+  var dark = (document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) === "dark";
+  // add semantic classes to every flowchart
+  document.querySelectorAll("pre.mermaid").forEach(function (el) {
+    if (/^\s*flowchart/.test(el.textContent)) {
+      el.textContent = el.textContent.replace(/\s*$/, "") +
+        "\n  classDef ok fill:" + v("--sage-soft") + ",stroke:" + v("--sage-mid") + ",color:" + v("--sage") +
+        "\n  classDef hold fill:" + v("--amber-soft") + ",stroke:" + v("--amber-mid") + ",color:" + v("--amber") +
+        "\n  classDef rej fill:" + v("--rust-soft") + ",stroke:" + v("--rust-mid") + ",color:" + v("--rust") + "\n";
+    }
+  });
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: "base",
+    securityLevel: "strict",
+    flowchart: { curve: "basis", htmlLabels: true, padding: 14, nodeSpacing: 34, rankSpacing: 42 },
+    sequence: { mirrorActors: false, actorMargin: 60 },
+    themeVariables: {
+      darkMode: dark,
+      fontFamily: v("--font"),
+      fontSize: "14px",
+      background: v("--panel"),
+      primaryColor: v("--raised"),
+      primaryBorderColor: v("--line-strong"),
+      primaryTextColor: v("--ink"),
+      secondaryColor: v("--accent-soft"),
+      tertiaryColor: v("--sunk"),
+      lineColor: v("--ink-3"),
+      textColor: v("--ink"),
+      edgeLabelBackground: v("--panel"),
+      clusterBkg: v("--sunk"),
+      actorBkg: v("--raised"),
+      actorBorder: v("--line-strong"),
+      actorTextColor: v("--ink"),
+      signalColor: v("--ink-2"),
+      signalTextColor: v("--ink"),
+      labelBoxBkgColor: v("--sunk"),
+      labelBoxBorderColor: v("--line-strong"),
+      loopTextColor: v("--ink-2"),
+      noteBkgColor: v("--sage-soft"),
+      noteBorderColor: v("--sage-mid"),
+      noteTextColor: v("--ink")
+    }
+  });
+  mermaid.run({ querySelector: "pre.mermaid" });
+})();
+</script>
+</body>
+</html>

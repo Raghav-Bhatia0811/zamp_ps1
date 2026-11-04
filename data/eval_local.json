@@ -1,0 +1,400 @@
+{
+  "engine": "local",
+  "run_at": "2026-11-04T10:15:22",
+  "original": {
+    "field_accuracy": 100.0,
+    "per_field": {
+      "vendor_gstin": "7/7",
+      "invoice_number": "7/7",
+      "invoice_date": "7/7",
+      "due_date": "7/7",
+      "po_reference": "7/7",
+      "subtotal": "7/7",
+      "tax_total": "7/7",
+      "total": "7/7",
+      "bank_account": "7/7",
+      "bank_ifsc": "7/7",
+      "line_items": "7/7"
+    },
+    "decision_accuracy": "7/7",
+    "decision_and_reason_accuracy": "7/7",
+    "avg_ms": 637,
+    "rows": [
+      {
+        "sample": "01_happy_path_northwind.pdf",
+        "engine": "local",
+        "fields_correct": 11,
+        "fields_total": 11,
+        "wrong_fields": [],
+        "decision": "approved",
+        "expected": "approved",
+        "decision_ok": true,
+        "blocking_checks": [],
+        "reason_ok": true,
+        "ms": 88
+      },
+      {
+        "sample": "02_split_po_brightline_part2.pdf",
+        "engine": "local",
+        "fields_correct": 11,
+        "fields_total": 11,
+        "wrong_fields": [],
+        "decision": "approved",
+        "expected": "approved",
+        "decision_ok": true,
+        "blocking_checks": [],
+        "reason_ok": true,
+        "ms": 85
+      },
+      {
+        "sample": "03_split_po_brightline_part3.pdf",
+        "engine": "local",
+        "fields_correct": 11,
+        "fields_total": 11,
+        "wrong_fields": [],
+        "decision": "hold",
+        "expected": "hold",
+        "decision_ok": true,
+        "blocking_checks": [
+          "R13"
+        ],
+        "reason_ok": true,
+        "ms": 86
+      },
+      {
+        "sample": "04_duplicate_apex.pdf",
+        "engine": "local",
+        "fields_correct": 11,
+        "fields_total": 11,
+        "wrong_fields": [],
+        "decision": "rejected",
+        "expected": "rejected",
+        "decision_ok": true,
+        "blocking_checks": [
+          "R10",
+          "R13"
+        ],
+        "reason_ok": true,
+        "ms": 89
+      },
+      {
+        "sample": "05_scanned_no_po_kestrel.pdf",
+        "engine": "local",
+        "fields_correct": 11,
+        "fields_total": 11,
+        "wrong_fields": [],
+        "decision": "hold",
+        "expected": "hold",
+        "decision_ok": true,
+        "blocking_checks": [
+          "R09"
+        ],
+        "reason_ok": true,
+        "ms": 3935
+      },
+      {
+        "sample": "06_price_variance_meridian.pdf",
+        "engine": "local",
+        "fields_correct": 11,
+        "fields_total": 11,
+        "wrong_fields": [],
+        "decision": "hold",
+        "expected": "hold",
+        "decision_ok": true,
+        "blocking_checks": [
+          "R12"
+        ],
+        "reason_ok": true,
+        "ms": 88
+      },
+      {
+        "sample": "07_bank_change_northwind.pdf",
+        "engine": "local",
+        "fields_correct": 11,
+        "fields_total": 11,
+        "wrong_fields": [],
+        "decision": "hold",
+        "expected": "hold",
+        "decision_ok": true,
+        "blocking_checks": [
+          "R06"
+        ],
+        "reason_ok": true,
+        "ms": 87
+      }
+    ]
+  },
+  "scan-light": {
+    "field_accuracy": 92.2,
+    "per_field": {
+      "vendor_gstin": "6/7",
+      "invoice_number": "7/7",
+      "invoice_date": "7/7",
+      "due_date": "7/7",
+      "po_reference": "7/7",
+      "subtotal": "7/7",
+      "tax_total": "7/7",
+      "total": "7/7",
+      "bank_account": "5/7",
+      "bank_ifsc": "5/7",
+      "line_items": "6/7"
+    },
+    "decision_accuracy": "7/7",
+    "decision_and_reason_accuracy": "6/7",
+    "avg_ms": 3419,
+    "rows": [
+      {
+        "sample": "01_happy_path_northwind.pdf",
+        "engine": "local",
+        "fields_correct": 10,
+        "fields_total": 11,
+        "wrong_fields": [
+          "bank_account"
+        ],
+        "decision": "approved",
+        "expected": "approved",
+        "decision_ok": true,
+        "blocking_checks": [],
+        "reason_ok": true,
+        "ms": 3629
+      },
+      {
+        "sample": "02_split_po_brightline_part2.pdf",
+        "engine": "local",
+        "fields_correct": 11,
+        "fields_total": 11,
+        "wrong_fields": [],
+        "decision": "approved",
+        "expected": "approved",
+        "decision_ok": true,
+        "blocking_checks": [],
+        "reason_ok": true,
+        "ms": 3199
+      },
+      {
+        "sample": "03_split_po_brightline_part3.pdf",
+        "engine": "local",
+        "fields_correct": 11,
+        "fields_total": 11,
+        "wrong_fields": [],
+        "decision": "hold",
+        "expected": "hold",
+        "decision_ok": true,
+        "blocking_checks": [
+          "R13"
+        ],
+        "reason_ok": true,
+        "ms": 3247
+      },
+      {
+        "sample": "04_duplicate_apex.pdf",
+        "engine": "local",
+        "fields_correct": 10,
+        "fields_total": 11,
+        "wrong_fields": [
+          "bank_account"
+        ],
+        "decision": "rejected",
+        "expected": "rejected",
+        "decision_ok": true,
+        "blocking_checks": [
+          "R10",
+          "R13"
+        ],
+        "reason_ok": true,
+        "ms": 3521
+      },
+      {
+        "sample": "05_scanned_no_po_kestrel.pdf",
+        "engine": "local",
+        "fields_correct": 9,
+        "fields_total": 11,
+        "wrong_fields": [
+          "vendor_gstin",
+          "bank_ifsc"
+        ],
+        "decision": "hold",
+        "expected": "hold",
+        "decision_ok": true,
+        "blocking_checks": [
+          "R09"
+        ],
+        "reason_ok": true,
+        "ms": 3491
+      },
+      {
+        "sample": "06_price_variance_meridian.pdf",
+        "engine": "local",
+        "fields_correct": 10,
+        "fields_total": 11,
+        "wrong_fields": [
+          "line_items"
+        ],
+        "decision": "hold",
+        "expected": "hold",
+        "decision_ok": true,
+        "blocking_checks": [
+          "R04"
+        ],
+        "reason_ok": false,
+        "ms": 3221
+      },
+      {
+        "sample": "07_bank_change_northwind.pdf",
+        "engine": "local",
+        "fields_correct": 10,
+        "fields_total": 11,
+        "wrong_fields": [
+          "bank_ifsc"
+        ],
+        "decision": "hold",
+        "expected": "hold",
+        "decision_ok": true,
+        "blocking_checks": [
+          "R06"
+        ],
+        "reason_ok": true,
+        "ms": 3622
+      }
+    ]
+  },
+  "scan-heavy": {
+    "field_accuracy": 90.9,
+    "per_field": {
+      "vendor_gstin": "6/7",
+      "invoice_number": "5/7",
+      "invoice_date": "7/7",
+      "due_date": "7/7",
+      "po_reference": "7/7",
+      "subtotal": "7/7",
+      "tax_total": "7/7",
+      "total": "7/7",
+      "bank_account": "6/7",
+      "bank_ifsc": "7/7",
+      "line_items": "4/7"
+    },
+    "decision_accuracy": "7/7",
+    "decision_and_reason_accuracy": "6/7",
+    "avg_ms": 4303,
+    "rows": [
+      {
+        "sample": "01_happy_path_northwind.pdf",
+        "engine": "local",
+        "fields_correct": 11,
+        "fields_total": 11,
+        "wrong_fields": [],
+        "decision": "approved",
+        "expected": "approved",
+        "decision_ok": true,
+        "blocking_checks": [],
+        "reason_ok": true,
+        "ms": 4423
+      },
+      {
+        "sample": "02_split_po_brightline_part2.pdf",
+        "engine": "local",
+        "fields_correct": 11,
+        "fields_total": 11,
+        "wrong_fields": [],
+        "decision": "approved",
+        "expected": "approved",
+        "decision_ok": true,
+        "blocking_checks": [],
+        "reason_ok": true,
+        "ms": 4187
+      },
+      {
+        "sample": "03_split_po_brightline_part3.pdf",
+        "engine": "local",
+        "fields_correct": 11,
+        "fields_total": 11,
+        "wrong_fields": [],
+        "decision": "hold",
+        "expected": "hold",
+        "decision_ok": true,
+        "blocking_checks": [
+          "R13"
+        ],
+        "reason_ok": true,
+        "ms": 4135
+      },
+      {
+        "sample": "04_duplicate_apex.pdf",
+        "engine": "local",
+        "fields_correct": 9,
+        "fields_total": 11,
+        "wrong_fields": [
+          "bank_account",
+          "line_items"
+        ],
+        "decision": "rejected",
+        "expected": "rejected",
+        "decision_ok": true,
+        "blocking_checks": [
+          "R04",
+          "R10",
+          "R13"
+        ],
+        "reason_ok": true,
+        "ms": 4386
+      },
+      {
+        "sample": "05_scanned_no_po_kestrel.pdf",
+        "engine": "local",
+        "fields_correct": 10,
+        "fields_total": 11,
+        "wrong_fields": [
+          "invoice_number"
+        ],
+        "decision": "hold",
+        "expected": "hold",
+        "decision_ok": true,
+        "blocking_checks": [
+          "R01",
+          "R09"
+        ],
+        "reason_ok": true,
+        "ms": 4372
+      },
+      {
+        "sample": "06_price_variance_meridian.pdf",
+        "engine": "local",
+        "fields_correct": 10,
+        "fields_total": 11,
+        "wrong_fields": [
+          "line_items"
+        ],
+        "decision": "hold",
+        "expected": "hold",
+        "decision_ok": true,
+        "blocking_checks": [
+          "R04"
+        ],
+        "reason_ok": false,
+        "ms": 4159
+      },
+      {
+        "sample": "07_bank_change_northwind.pdf",
+        "engine": "local",
+        "fields_correct": 8,
+        "fields_total": 11,
+        "wrong_fields": [
+          "vendor_gstin",
+          "invoice_number",
+          "line_items"
+        ],
+        "decision": "hold",
+        "expected": "hold",
+        "decision_ok": true,
+        "blocking_checks": [
+          "R01",
+          "R03",
+          "R04",
+          "R06"
+        ],
+        "reason_ok": true,
+        "ms": 4458
+      }
+    ]
+  }
+}
