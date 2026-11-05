@@ -1,4 +1,5 @@
-"""SQLite storage: runs (full audit record per invoice) and the AP ledger (posted invoices)."""
+"""SQLite storage: runs (full audit record per invoice), the AP ledger (posted invoices),
+and precedents (reviewer decisions, searchable by knowledge.py)."""
 from __future__ import annotations
 
 import json
@@ -11,6 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 STATE_DIR = Path(os.environ.get("STATE_DIR", ROOT / "data"))  # app.db + uploads; mount a volume here
 DB_PATH = STATE_DIR / "app.db"
+ARTIFACTS = STATE_DIR / "artifacts"   # per-run page images: original, cleaned, layout overlay, crops
 MASTER_PATH = ROOT / "data" / "master.json"
 _lock = threading.RLock()
 
@@ -34,7 +36,9 @@ def init(reset: bool = False):
         if reset:
             c.execute("DROP TABLE IF EXISTS runs")
             c.execute("DROP TABLE IF EXISTS ledger")
+            c.execute("DROP TABLE IF EXISTS precedents")
         c.execute("CREATE TABLE IF NOT EXISTS runs (id TEXT PRIMARY KEY, created_at TEXT, data TEXT)")
+        c.execute("CREATE TABLE IF NOT EXISTS precedents (id TEXT PRIMARY KEY, created_at TEXT, data TEXT)")
         c.execute("""CREATE TABLE IF NOT EXISTS ledger (
             id INTEGER PRIMARY KEY AUTOINCREMENT, vendor_id TEXT, invoice_number TEXT, canon TEXT,
             po_id TEXT, subtotal REAL, total REAL, lines TEXT, invoice_date TEXT, status TEXT,
@@ -88,3 +92,17 @@ def post_to_ledger(run: dict, status: str = "approved"):
                   (f.get("vendor_id"), f.get("invoice_number"), f.get("invoice_number_canonical"), po_id,
                    f.get("subtotal") or 0, f.get("total") or 0, json.dumps(lines), f.get("invoice_date"), status,
                    f"Run {run['id']}", run["id"], now_iso()))
+
+
+def add_precedent(p: dict):
+    with _lock, _conn() as c:
+        c.execute("INSERT OR REPLACE INTO precedents (id, created_at, data) VALUES (?,?,?)", (p["id"], now_iso(), json.dumps(p)))
+
+
+def precedents() -> list[dict]:
+    with _lock, _conn() as c:
+        try:
+            rows = c.execute("SELECT data FROM precedents ORDER BY created_at").fetchall()
+        except sqlite3.OperationalError:
+            return []
+    return [json.loads(r["data"]) for r in rows]

@@ -25,6 +25,11 @@
     search: P('<circle cx="11" cy="11" r="7.5"/><path d="m21 21-4.3-4.3"/>'),
     play: P('<path d="M7 4.5v15l12-7.5z"/>'),
     copy: P('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'),
+    minus: P('<path d="M6 12h12"/>'),
+    spark: P('<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.5 2.5M15.2 15.2l2.5 2.5M6.3 17.7l2.5-2.5M15.2 8.8l2.5-2.5"/>'),
+    message: P('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'),
+    library: P('<path d="M4 4h4v16H4zM10 4h4v16h-4z"/><path d="m16.5 4.5 3.8 1-3.9 14.5-3.8-1z"/>'),
+    send: P('<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>'),
   };
   const icon = (n, cls = "") => `<span class="ico ${cls}">${ICONS[n] || ""}</span>`;
   const hydrateIcons = (root = document) => root.querySelectorAll("[data-icon]").forEach((el) => { el.innerHTML = ICONS[el.dataset.icon] || ""; });
@@ -57,6 +62,15 @@
   const effective = (r) => (r.review ? (r.review.action === "approve" ? "approved" : "rejected") : r.result?.decision);
   const LABEL = { approved: "Approved", hold: "On hold", rejected: "Rejected", running: "Running", queued: "Queued", error: "Error" };
   const chip = (d, text) => `<span class="chip ${esc(d)}"><span class="dot"></span>${esc(text || LABEL[d] || d)}</span>`;
+  const art = (run, name) => `/api/runs/${encodeURIComponent(run.id)}/artifacts/${encodeURIComponent(name)}`;
+  const SRC = { text: "Digital", scan: "Scan", photo: "Photo" };
+  const GRADE = { digital: "approved", good: "approved", fair: "hold", poor: "hold", unreadable: "rejected" };
+  const REGION_COLOR = { vendor_block: "#3465a4", invoice_meta: "#4e9a06", bill_to: "#75507b", line_items: "#c4a000", totals: "#cc0000",
+    bank_details: "#06989a", stamp: "#dc3278", signature: "#8f5902", handwriting: "#f57900" };
+  const FSTATUS = { verified: ["approved", "Proven"], agreed: ["approved", "Two reads agree"], read: ["", "Read"], repaired: ["hold", "Repaired"],
+    disputed: ["rejected", "Reads disagree"], low: ["hold", "Low confidence"], missing: ["", "Missing"] };
+  const FNAME = { vendor_name: "Vendor", vendor_gstin: "GSTIN", invoice_number: "Invoice no.", invoice_date: "Invoice date", due_date: "Due date",
+    po_reference: "PO reference", line_items: "Line items", subtotal: "Subtotal", tax_total: "Tax", total: "Total", bank_account: "Bank account", bank_ifsc: "IFSC" };
 
   let toastTimer;
   function toast(msg) {
@@ -80,7 +94,7 @@
   // ------------------------------------------------------------------ state
   const S = {
     config: null, runs: [], engine: "auto", current: null, es: null, mounted: null,
-    open: new Set(), revealed: new Set(), autoOpened: new Set(), detailCache: {}, filter: "all", q: "", batch: false, enders: {}, ticker: null,
+    open: new Set(), revealed: new Set(), answers: {}, autoOpened: new Set(), detailCache: {}, filter: "all", q: "", batch: false, enders: {}, ticker: null,
   };
   const view = $("#view");
 
@@ -106,9 +120,10 @@
   // ------------------------------------------------------------------ chrome
   function paintEngine() {
     const c = S.config;
-    $("#engine-status").innerHTML = c.claude_available
+    $("#engine-status").innerHTML = (c.claude_available
       ? `<b><span class="dot"></span>Claude connected</b>${esc(c.model)} reads every invoice. Rules make the decision.`
-      : `<b><span class="dot warn"></span>Offline mode</b>No API key set, so invoices are read by local OCR. Set ANTHROPIC_API_KEY to use Claude.`;
+      : `<b><span class="dot warn"></span>Offline mode</b>No API key set, so invoices are read by local OCR. Set ANTHROPIC_API_KEY to use Claude.`)
+      + `<span class="engine-row"><span class="dot ${c.layout_model ? "" : "warn"}"></span>Vision: OpenCV clean-up${c.layout_model ? " + YOLO layout" : " (no layout model)"}</span>`;
   }
   function paintNav() {
     const route = (location.hash || "#/process").split("/")[1];
@@ -129,6 +144,7 @@
     paintNav();
     if (parts[0] === "runs") return renderRuns();
     if (parts[0] === "data") return renderData();
+    if (parts[0] === "knowledge") return renderKnowledge();
     if (parts[0] === "run" && parts[1]) return renderProcess(parts[1]);
     return renderProcess(null);
   }
@@ -151,11 +167,11 @@
     return `
       <div class="panel panel-pad">
         <h2>New invoice</h2>
-        <input type="file" id="file-input" accept="application/pdf,.pdf" hidden>
+        <input type="file" id="file-input" accept="application/pdf,.pdf,image/jpeg,image/png,image/tiff,image/webp,.jpg,.jpeg,.png,.tif,.tiff,.webp" hidden>
         <label class="drop" for="file-input" id="drop" tabindex="0">
           ${icon("upload")}
-          <strong>Drop an invoice PDF</strong>
-          <span>or click to choose a file. Text and scanned PDFs both work.</span>
+          <strong>Drop an invoice PDF or photo</strong>
+          <span>or click to choose a file. Digital PDFs, scans and phone photos (JPG, PNG) all work.</span>
         </label>
         <div class="field-row" style="margin-top:14px">
           <span class="label" id="engine-lbl">Reader</span>
@@ -166,7 +182,7 @@
         <h2>Demo scenarios</h2>
         <div class="samples">${samples}</div>
         <div class="sample-foot">
-          <button class="btn-ghost sm" type="button" id="run-all">${icon("play")}Run all seven in order</button>
+          <button class="btn-ghost sm" type="button" id="run-all">${icon("play")}Run all ${c.samples.length} in order</button>
         </div>
       </div>`;
   }
@@ -193,7 +209,7 @@
         <rect x="200" y="122" width="30" height="7" rx="3" fill="var(--line-strong)"/>
       </svg>
       <h3>Pick a scenario or drop a PDF</h3>
-      <p>Each invoice runs through seven stages, from reading the document to a payment decision. You'll see every stage as it runs and the reasons behind the decision.</p>
+      <p>Each invoice runs through ten stages: cleaning up the image, finding its regions, reading and proving every field, then the payment checks. You'll see every stage as it runs and the reasons behind the decision.</p>
     </div></div>`;
   }
 
@@ -203,7 +219,7 @@
       <div class="page-head">
         <div>
           <h1 class="page-title">Process an invoice</h1>
-          <p class="page-lede">From PDF to a payment decision. The AI reads the invoice; fixed, auditable rules make the call.</p>
+          <p class="page-lede">From PDF or photo to a payment decision. Vision cleans the page, AI reads it, every field is proven, and fixed, auditable rules make the call.</p>
         </div>
       </div>
       <div class="process">
@@ -246,13 +262,13 @@
   function setIntakeBusy(busy) {
     $$("[data-sample], #run-all").forEach((b) => { b.disabled = busy; });
     const ra = $("#run-all");
-    if (ra) ra.innerHTML = busy ? `${icon("play")}Running scenarios…` : `${icon("play")}Run all seven in order`;
+    if (ra) ra.innerHTML = busy ? `${icon("play")}Running scenarios…` : `${icon("play")}Run all ${S.config.samples.length} in order`;
   }
 
   async function startRun({ file, sample }) {
     const fd = new FormData();
     if (file) {
-      if (!/\.pdf$/i.test(file.name) && file.type !== "application/pdf") { toast("That isn't a PDF. Upload the invoice as a PDF."); return null; }
+      if (!/\.(pdf|jpe?g|png|tiff?|webp)$/i.test(file.name) && !/^(application\/pdf|image\/)/.test(file.type)) { toast("Send the invoice as a PDF, JPG or PNG."); return null; }
       fd.append("file", file);
     }
     if (sample) fd.append("sample", sample);
@@ -364,7 +380,7 @@
     }
   }
 
-  const NODE_ICON = { done: "check", warn: "check", hold: "pause", fail: "x", error: "x" };
+  const NODE_ICON = { done: "check", warn: "check", hold: "pause", fail: "x", error: "x", skipped: "minus" };
 
   function updateRun(run) {
     // when a run finishes, open the stages that explain a hold or rejection
@@ -392,6 +408,7 @@
         $(".stage-detail", li).innerHTML = detail || "";
         S.detailCache[s.key] = key;
         bindCopy(li);
+        $$("[data-doc]", li).forEach((b) => b.addEventListener("click", () => openDoc(S.current, b.dataset.doc)));
       }
     });
 
@@ -401,6 +418,9 @@
   function runningText(key, run) {
     return {
       intake: "Checking the file and fingerprinting it…",
+      vision: "Measuring the image and cleaning it up…",
+      layout: "Finding regions, stamps and signatures…",
+      verify: "Proving fields with checksums and arithmetic…",
       extract: run.engine_requested === "local" || !S.config.claude_available ? "Reading the document with OCR…" : "Claude is reading the document…",
       vendor: "Looking up the vendor master…",
       validate: "Checking fields, arithmetic, tax and bank details…",
@@ -430,7 +450,8 @@
     if (!list.length) return "";
     return `<ul class="checks">${list.map((c) => {
       const ic = c.status === "pass" ? "circleCheck" : c.status === "warn" ? "circleDash" : c.severity === "reject" ? "circleX" : "circlePause";
-      return `<li class="check ${c.status} sev-${c.severity}">${icon(ic)}<div><div class="check-label">${esc(c.label)}</div><div class="check-detail">${esc(c.detail)}</div></div><span class="check-id">${esc(c.id)}</span></li>`;
+      const pol = c.policy && c.status !== "pass" ? `<details class="cite"><summary>${esc(c.policy.doc)} ${esc(c.policy.ref)} · ${esc(c.policy.title)}</summary><p>${esc(c.policy.text)}</p></details>` : "";
+      return `<li class="check ${c.status} sev-${c.severity}">${icon(ic)}<div><div class="check-label">${esc(c.label)}</div><div class="check-detail">${esc(c.detail)}</div>${pol}</div><span class="check-id">${esc(c.id)}</span></li>`;
     }).join("")}</ul>`;
   }
   const logHTML = (s) => (s.log?.length ? `<ul class="stage-log">${s.log.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : "");
@@ -441,6 +462,12 @@
     switch (s.key) {
       case "intake":
         return `${logHTML(s)}<dl class="kv"><dt>Type</dt><dd>${esc(d.kind)}</dd><dt>Pages</dt><dd>${esc(d.pages)}</dd><dt>Size</dt><dd>${esc(d.size_kb)} KB</dd><dt>Fingerprint</dt><dd class="mono">${esc((run.file_hash || "").slice(0, 24))}…</dd></dl>`;
+      case "vision":
+        return visionHTML(run, s, d);
+      case "layout":
+        return layoutHTML(run, s, d);
+      case "verify":
+        return verifyHTML(run, s, d);
       case "extract": {
         const f = d.raw || {};
         const low = new Set(f.low_confidence_fields || []);
@@ -484,7 +511,7 @@
         const lc = d.line_comparison || [];
         if (lc.length) {
           html += `<div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Invoice line</th><th class="num">Qty</th><th class="num">Rate vs PO</th></tr></thead><tbody>
-            ${lc.map((r) => `<tr class="${r.status !== "ok" ? "bad" : ""}"><td>${esc(r.description)}${r.po_line ? "" : '<span class="sub">Not on the PO</span>'}</td>
+            ${lc.map((r) => `<tr class="${r.status !== "ok" ? "bad" : ""}"><td>${esc(r.description)}${r.po_line ? (r.match === "semantic" ? `<span class="sub"><span class="sem">matched by meaning ${Math.round(r.match_score * 100)}%</span> → ${esc(r.po_line)}</span>` : "") : '<span class="sub">Not on the PO</span>'}</td>
               <td class="num">${esc(r.qty ?? "—")}${r.po_qty != null ? `<span class="sub">${r.qty_billed_before ? `+${r.qty_billed_before} earlier, ` : ""}${r.po_qty} ordered</span>` : ""}</td>
               <td class="num">${inr(r.unit_price)}${r.po_unit_price != null ? `<span class="sub">PO ${inr(r.po_unit_price)}${Math.abs(r.variance_pct) > 0.05 ? ` · ${r.variance_pct > 0 ? "+" : ""}${r.variance_pct.toFixed(1)}%` : ""}</span>` : ""}</td></tr>`).join("")}
           </tbody></table></div>`;
@@ -497,6 +524,88 @@
       default:
         return "";
     }
+  }
+
+  // ---------- clean-up stage
+  function visionHTML(run, s, d) {
+    if (d.source === "text") {
+      const p = (d.pages || [])[0];
+      return `${logHTML(s)}${p ? `<div class="compare one"><button type="button" class="fig" data-doc="original"><img src="${art(run, p.original)}" alt="Page 1 as received" loading="lazy"><span>Page as received</span></button></div>` : ""}`;
+    }
+    const p = (d.pages || [])[0] || {};
+    const b = p.before || {}, a = p.after || {};
+    const row = (lbl, x, y, fmt, better) => {
+      const good = better === "up" ? y > x * 1.05 : better === "down" ? Math.abs(y) < Math.abs(x) * 0.95 : false;
+      return `<tr><td>${lbl}</td><td class="num">${fmt(x)}</td><td class="num ${good ? "better" : ""}">${fmt(y)}</td></tr>`;
+    };
+    const f1 = (v) => (v == null ? "—" : Number(v).toFixed(1));
+    const f0 = (v) => (v == null ? "—" : Math.round(v).toLocaleString("en-IN"));
+    const deg = (v) => (v == null ? "—" : `${v > 0 ? "+" : ""}${Number(v).toFixed(1)}°`);
+    const pct = Math.max(0, Math.min(100, d.score || 0));
+    return `
+      <div class="compare">
+        <button type="button" class="fig" data-doc="original"><img src="${art(run, p.original)}" alt="Page as received" loading="lazy"><span>As received</span></button>
+        <button type="button" class="fig" data-doc="clean"><img src="${art(run, p.cleaned)}" alt="Page after clean-up" loading="lazy"><span>After clean-up</span></button>
+      </div>
+      <div class="legib">
+        <div class="legib-top"><span class="label">Legibility after clean-up</span>${chip(GRADE[d.grade] || "", `${d.score}/100 · ${d.grade}`)}</div>
+        <div class="gauge g-${esc(d.grade)}" role="img" aria-label="Legibility ${d.score} out of 100"><span style="width:${pct}%"></span><i style="left:50%"></i><i style="left:80%"></i></div>
+        <div class="sub">Measured, not guessed: OCR confidence ${esc(d.ocr_conf)}% across ${esc(d.words)} words. Below 50 the vendor is asked for a clearer copy.</div>
+      </div>
+      <h4 class="mini">What was fixed</h4>
+      <ol class="steps">${(p.steps || []).map((x) => `<li>${esc(x)}</li>`).join("")}</ol>
+      <div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Measure</th><th class="num">Before</th><th class="num">After</th></tr></thead><tbody>
+        ${row("Sharpness (Laplacian variance)", b.sharpness, a.sharpness, f0, "up")}
+        ${row("Uneven lighting / shadow", b.uneven, a.uneven, f1, "down")}
+        ${row("Noise", b.noise, a.noise, f1, "down")}
+        ${row("Text skew", b.skew_deg, a.skew_deg, deg, "down")}
+        ${row("Resolution (dpi, est.)", b.dpi_est, a.dpi_est, f0, "up")}
+      </tbody></table></div>
+      ${(d.pages || []).length > 1 ? `<p class="sub" style="margin-top:8px">${d.pages.length} pages cleaned; page 1 shown.</p>` : ""}`;
+  }
+
+  // ---------- regions stage
+  function layoutHTML(run, s, d) {
+    if (!d.available) return `<p class="check-detail">The layout model isn't installed (models/layout-yolo.onnx), so the whole page is read in one pass.</p>`;
+    const dets = d.detections || [];
+    const counts = {};
+    dets.forEach((x) => { counts[x.cls] = (counts[x.cls] || 0) + 1; });
+    const legend = Object.entries(counts).map(([k, n]) => `<span class="reg"><i style="background:${REGION_COLOR[k]}"></i>${esc(dets.find((x) => x.cls === k).label)}${n > 1 ? ` ×${n}` : ""}</span>`).join("");
+    const marks = dets.filter((x) => ["stamp", "handwriting", "signature"].includes(x.cls));
+    const ov = (d.pages || [])[0];
+    return `${logHTML(s)}
+      <div class="layout-grid">
+        ${ov ? `<button type="button" class="fig tall" data-doc="layout"><img src="${art(run, ov.overlay)}" alt="Detected regions" loading="lazy"><span>Detected regions</span></button>` : ""}
+        <div>
+          <div class="regs">${legend || '<span class="sub">No regions found</span>'}</div>
+          <p class="sub" style="margin:8px 0 0">YOLO layout model (trained on synthetic invoices) · ONNX on CPU · ${esc(d.ms_model)} ms for ${dets.length} region${dets.length !== 1 ? "s" : ""}.
+          ${d.regions_read?.length ? `Re-read on their own: ${d.regions_read.map((k) => esc(k.replace("_", " "))).join(", ")}.` : ""}</p>
+          ${marks.length ? `<h4 class="mini">Ink on the page</h4><div class="marks">${marks.map((m) => `
+            <div class="mark">${m.crop ? `<img src="${art(run, m.crop)}" alt="${esc(m.label)}" loading="lazy">` : ""}
+              <div><b>${esc(m.label)}</b> <span class="sub-inline">${Math.round(m.conf * 100)}%</span>
+              ${m.cls === "stamp" ? `<span class="sub">Reads “${esc(m.read?.text || "?")}”${m.read?.keyword ? ` → <b class="${["PAID", "CANCELLED", "CANCELED", "VOID"].includes(m.read.keyword) ? "warn-text" : ""}">${esc(m.read.keyword)}</b>` : ""}</span>` : ""}
+              ${m.cls === "handwriting" ? `<span class="sub">${m.near ? `On the <b class="warn-text">${esc(m.near)}</b>` : "Away from amounts"}</span>` : ""}
+              ${m.cls === "signature" ? `<span class="sub">Supplier signature</span>` : ""}</div></div>`).join("")}</div>` : ""}
+        </div>
+      </div>`;
+  }
+
+  // ---------- verification stage
+  function verifyHTML(run, s, d) {
+    const fs = d.fields || {};
+    const rows = Object.entries(fs).filter(([k, v]) => v.status !== "missing" || ["invoice_number", "total", "vendor_gstin"].includes(k)).map(([k, v]) => {
+      const [cls, lbl] = FSTATUS[v.status] || ["", v.status];
+      const val = ["subtotal", "tax_total", "total"].includes(k) ? inr(v.value) : k === "bank_account" ? mask(v.value) : esc(v.value ?? "—");
+      const c = Math.max(0, Math.min(100, v.conf || 0));
+      return `<tr><td>${esc(FNAME[k] || k)}</td><td><span class="${["vendor_gstin", "invoice_number", "bank_ifsc"].includes(k) ? "mono" : ""}">${val}</span>
+        <span class="sub">${esc(v.evidence || (v.source ? `From ${v.source}` : ""))}</span></td>
+        <td>${chip(cls, lbl)}<span class="sub nowrap"><span class="cbar"><span style="width:${c}%" class="${c < 70 ? "lo" : ""}"></span></span>${c}%</span></td></tr>`;
+    }).join("");
+    const reps = (d.repairs || []).map((r) => `<li><b>${esc(FNAME[r.field] || r.field)}</b> <span class="mono">${esc(r.from)}</span> → <span class="mono">${esc(r.to)}</span><span class="sub">${esc(r.why)}</span></li>`).join("");
+    return `${checksHTML(run, s.checks || [])}
+      ${reps ? `<h4 class="mini">OCR slips repaired</h4><ul class="repairs">${reps}</ul>` : ""}
+      <div class="table-wrap" style="margin-top:12px"><table class="ftable"><thead><tr><th>Field</th><th>Value and evidence</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>
+      ${logHTML(s)}`;
   }
 
   function meterHTML(po) {
@@ -557,6 +666,13 @@
         </div>
         <p class="check-detail" style="margin:8px 0 0">Drafted, not sent. A person reviews it first.</p>
       </div>` : ""}
+      ${(r.similar || []).length ? `<div class="dec-section">
+        <h3 class="section-title">Similar past decisions</h3>
+        <ul class="cases">${r.similar.map((c) => `<li>
+          <div class="case-top"><span class="mono">${esc(c.ref)}</span>${chip(c.decision === "approved" ? "approved" : c.decision === "rejected" ? "rejected" : "hold", c.decision === "held" ? "Held" : c.decision === "approved" ? "Approved" : "Rejected")}<span class="sub-inline">${esc(c.vendor)} · ${esc(c.check)}${c.date ? ` · ${fmtDate(c.date)}` : ""}</span></div>
+          <div class="case-facts">${esc(c.facts)}</div><div class="case-note">“${esc(c.note)}”</div></li>`).join("")}</ul>
+        <p class="check-detail" style="margin:8px 0 0">Found by hybrid search over past reviewer notes. Precedent informs the reviewer; it never decides.</p>
+      </div>` : ""}
       ${r.decision === "hold" ? `<div class="dec-section review">
         <h3 class="section-title">Reviewer decision</h3>
         ${rv ? `<p class="reviewed"><b>${rv.action === "approve" ? "Approved and posted" : "Rejected"}</b> by ${esc(rv.by)} at ${fmtTime(rv.at)}${rv.note ? `: “${esc(rv.note)}”` : "."}</p>`
@@ -566,8 +682,15 @@
                  <button class="btn sage sm" type="button" data-review="approve">${icon("check")}Approve and post</button>
                  <button class="btn-ghost sm danger" type="button" data-review="reject">${icon("x")}Reject</button>
                </div>`}
-      </div>` : ""}`;
+      </div>` : ""}
+      <div class="dec-section ask">
+        <h3 class="section-title">${icon("message")} Ask about this invoice</h3>
+        <div class="ask-sugg">${["Why is this " + (r.decision === "approved" ? "approved" : r.decision === "hold" ? "on hold" : "rejected") + "?", "What must I check before approving?", "What does the policy say?"].map((q) => `<button type="button" class="pill" data-q="${esc(q)}">${esc(q)}</button>`).join("")}</div>
+        <form class="ask-form" id="ask-form"><input id="ask-q" type="text" maxlength="600" placeholder="Ask about policy, this run or past cases" aria-label="Question"><button class="btn sm" type="submit" aria-label="Ask">${icon("send")}</button></form>
+        <div id="ask-out" aria-live="polite">${S.answers[run.id] || ""}</div>
+      </div>`;
     bindCopy(el);
+    bindAsk(el, run);
     $$("[data-review]", el).forEach((b) => b.addEventListener("click", async () => {
       const note = $("#review-note")?.value || "";
       if (b.dataset.review === "approve" && !note.trim()) { toast("Add a short note before approving an exception."); $("#review-note").focus(); return; }
@@ -596,12 +719,46 @@
     });
   }
 
+  // ---------- ask (retrieval-augmented)
+  function answerHTML(res) {
+    const cite = (t) => esc(t).replace(/\[((?:§|P-|run)[^\]]{0,24})\]/g, '<span class="cite-tag">$1</span>');
+    const src = (res.sources || []).slice(0, 6).map((x) => `<li><span class="mono">${esc(x.ref)}</span> ${esc(x.title)}<span class="sub">${esc(x.doc)} · ${x.bm25_rank ? `BM25 #${x.bm25_rank}` : "BM25 —"}${x.dense_rank ? ` · dense #${x.dense_rank}` : ""}</span>${res.answer ? "" : `<p>${esc(x.text)}</p>`}</li>`).join("");
+    return `${res.answer ? `<div class="answer">${res.answer.split(/\n+/).map((p) => `<p>${cite(p)}</p>`).join("")}</div>` : `<p class="check-detail">${esc(res.note || "")}</p>`}
+      <details class="sources" ${res.answer ? "" : "open"}><summary>${res.answer ? "Sources" : "Most relevant passages"} · ${esc(res.retrieval || "")}</summary><ul>${src}</ul></details>`;
+  }
+  function bindAsk(el, run) {
+    const form = $("#ask-form", el);
+    if (!form) return;
+    const go = async (q) => {
+      if (!q.trim()) return;
+      const out = $("#ask-out", el);
+      out.innerHTML = `<div class="skeleton" style="width:90%"></div><div class="skeleton" style="width:70%"></div>`;
+      try {
+        const res = await api("/api/ask", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: q, run_id: run.id }) });
+        S.answers[run.id] = `<p class="q">${esc(q)}</p>${answerHTML(res)}`;
+        out.innerHTML = S.answers[run.id];
+      } catch (e) { out.innerHTML = `<div class="error-box">${esc(e.message)}</div>`; }
+    };
+    form.addEventListener("submit", (e) => { e.preventDefault(); go($("#ask-q", el).value); });
+    $$("[data-q]", el).forEach((b) => b.addEventListener("click", () => { $("#ask-q", el).value = b.dataset.q; go(b.dataset.q); }));
+  }
+
   // ---------- document drawer
-  function openDoc(run) {
+  function openDoc(run, tab) {
     if (!run) return;
+    const arts = run.artifacts || [];
+    const tabs = [["original", "As received"]];
+    if (arts.includes("p1-clean.jpg")) tabs.push(["clean", "Cleaned"]);
+    if (arts.includes("p1-layout.jpg")) tabs.push(["layout", "Regions"]);
+    tab = tab && tabs.some((t) => t[0] === tab) ? tab : "original";
     $("#doc-title").textContent = run.filename;
-    $("#doc-sub").textContent = `${run.id} · original document`;
-    $("#doc-frame").src = `/api/runs/${encodeURIComponent(run.id)}/document#view=FitH`;
+    $("#doc-sub").textContent = `${run.id} · ${tabs.find((t) => t[0] === tab)[1].toLowerCase()}`;
+    $("#doc-tabs").innerHTML = tabs.length > 1 ? `<div class="seg" role="tablist">${tabs.map(([k, l]) => `<button type="button" role="tab" data-tab="${k}" aria-pressed="${k === tab}">${l}</button>`).join("")}</div>` : "";
+    const body = $("#doc-body");
+    if (tab === "original" && (run.kind || "pdf") === "pdf") body.innerHTML = `<iframe title="Invoice document" src="/api/runs/${encodeURIComponent(run.id)}/document#view=FitH"></iframe>`;
+    else if (tab === "original") body.innerHTML = `<div class="doc-img"><img alt="Invoice as received" src="/api/runs/${encodeURIComponent(run.id)}/document"></div>`;
+    else body.innerHTML = `<div class="doc-img"><img alt="Invoice ${tab}" src="${art(run, tab === "clean" ? "p1-clean.jpg" : "p1-layout.jpg")}"></div>`;
+    $$("[data-tab]").forEach((b) => b.addEventListener("click", () => openDoc(run, b.dataset.tab)));
     const d = $("#doc-drawer");
     d.classList.add("open");
     d.setAttribute("aria-hidden", "false");
@@ -622,7 +779,7 @@
     const runs = S.runs.filter((r) => r.status === "done");
     const head = `<div class="page-head"><div><h1 class="page-title">Runs</h1><p class="page-lede">Every invoice processed, its decision and where it went. Select a run to replay its trail.</p></div></div>`;
     if (!S.runs.length) {
-      view.innerHTML = `${head}<div class="empty"><div><h3>No runs yet</h3><p>Process an invoice or run the seven demo scenarios to fill this page.</p><div style="margin-top:16px"><a class="btn" href="#/process">Go to Process</a></div></div></div>`;
+      view.innerHTML = `${head}<div class="empty"><div><h3>No runs yet</h3><p>Process an invoice or run the demo scenarios to fill this page.</p><div style="margin-top:16px"><a class="btn" href="#/process">Go to Process</a></div></div></div>`;
       return;
     }
     const count = (d) => runs.filter((r) => r.decision === d).length;
@@ -634,6 +791,9 @@
     const median = durs.length ? durs[Math.floor(durs.length / 2)] : null;
     const n = runs.length || 1;
     const mix = ["approved", "hold", "rejected"].map((d) => ({ d, c: count(d) }));
+    const messy = runs.filter((r) => r.source && r.source !== "text");
+    const repaired = runs.reduce((a, r) => a + (r.repairs || 0), 0);
+    const illegible = runs.filter((r) => r.grade === "unreadable").length;
 
     view.innerHTML = `${head}
       <section class="strip" aria-label="Summary">
@@ -641,7 +801,8 @@
         <div class="stat"><div class="stat-label">Straight-through</div><div class="stat-value">${Math.round((auto / n) * 100)}%</div><div class="stat-note">${auto} approved with no touch</div></div>
         <div class="stat"><div class="stat-label">Waiting on review</div><div class="stat-value">${held.length}</div><div class="stat-note">${inrShort(held.reduce((a, r) => a + (r.total || 0), 0))} held</div></div>
         <div class="stat"><div class="stat-label">Exceptions caught</div><div class="stat-value">${caught.length}</div><div class="stat-note">${inrShort(caught.reduce((a, r) => a + (r.total || 0), 0))} not paid automatically</div></div>
-        <div class="stat"><div class="stat-label">Median time</div><div class="stat-value">${secs(median)}</div><div class="stat-note">PDF to decision</div></div>
+        <div class="stat"><div class="stat-label">Scans &amp; photos</div><div class="stat-value">${messy.length}</div><div class="stat-note">${repaired} field${repaired !== 1 ? "s" : ""} repaired · ${illegible} sent back</div></div>
+        <div class="stat"><div class="stat-label">Median time</div><div class="stat-value">${secs(median)}</div><div class="stat-note">document to decision</div></div>
         <div class="mix">
           <div class="mix-bar" role="img" aria-label="${mix.map((m) => `${m.c} ${LABEL[m.d]}`).join(", ")}">${mix.map((m) => `<span class="bg-${m.d}" style="flex-grow:${m.c}"></span>`).join("")}</div>
           <div class="mix-legend">${mix.map((m) => `<span><i class="bg-${m.d}"></i>${LABEL[m.d]} ${m.c}</span>`).join("")}</div>
@@ -654,7 +815,7 @@
         <label class="search">${icon("search")}<input id="q" type="search" placeholder="Search vendor, invoice or PO" value="${esc(S.q)}" aria-label="Search runs"></label>
       </div>
       <div class="table-wrap"><table class="runs-table">
-        <thead><tr><th>Run</th><th>Vendor · invoice</th><th class="num">Amount</th><th>PO</th><th>Decision</th><th>Routed to</th><th>Reader</th><th class="num">Time</th></tr></thead>
+        <thead><tr><th>Run</th><th>Vendor · invoice</th><th class="num">Amount</th><th>PO</th><th>Decision</th><th>Routed to</th><th>Input</th><th>Reader</th><th class="num">Time</th></tr></thead>
         <tbody id="runs-body"></tbody>
       </table></div>`;
     paintRunsBody();
@@ -671,7 +832,7 @@
     const rows = S.runs.filter((r) => (S.filter === "all" || r.decision === S.filter) &&
       (!q || [r.vendor, r.invoice_number, r.po_id, r.id, r.filename].some((x) => (x || "").toLowerCase().includes(q))));
     const body = $("#runs-body");
-    if (!rows.length) { body.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--ink-3);padding:28px">No runs match this filter.</td></tr>`; return; }
+    if (!rows.length) { body.innerHTML = `<tr><td colspan="9" style="text-align:center;color:var(--ink-3);padding:28px">No runs match this filter.</td></tr>`; return; }
     body.innerHTML = rows.map((r) => {
       const dec = r.status === "done" ? chip(r.decision) : r.status === "error" ? chip("rejected", "Error") : chip("running", "Running");
       const sub = r.decision === "hold" ? '<span class="needs">Needs review</span>' : r.reviewed ? '<span class="sub">Reviewed</span>' : "";
@@ -682,6 +843,7 @@
         <td>${r.po_id ? esc(r.po_id) : "—"}${r.po_method === "inferred" ? '<span class="inferred">inferred</span>' : ""}</td>
         <td>${dec}${sub}</td>
         <td>${esc(r.queue || "—")}</td>
+        <td>${r.source ? `${esc(SRC[r.source] || r.source)}${r.source !== "text" && r.score != null ? `<span class="sub">legibility ${r.score}</span>` : ""}` : "—"}</td>
         <td>${r.engine === "claude" ? "Claude" : r.engine === "local" ? "Local OCR" : "—"}</td>
         <td class="num">${secs(r.duration_ms)}</td></tr>`;
     }).join("");
@@ -743,12 +905,52 @@
       </div>`;
   }
 
+  // ------------------------------------------------------------------ knowledge page
+  async function renderKnowledge() {
+    S.mounted = null;
+    view.innerHTML = `<div class="page-head"><div><h1 class="page-title">Knowledge</h1><p class="page-lede">The AP policy, GST notes and past reviewer decisions the desk cites. Every check points at its clause; exceptions are matched to precedent by hybrid search.</p></div></div><div class="panel panel-pad"><div class="skeleton"></div><div class="skeleton" style="width:70%"></div></div>`;
+    const k = await api("/api/knowledge");
+    const pol = k.docs["ap-policy"] || [], gst = k.docs["gst-notes"] || [], pre = k.docs["precedent"] || [];
+    const bySection = {};
+    [...pol, ...gst].forEach((c) => { (bySection[c.section] = bySection[c.section] || []).push(c); });
+    const refCheck = {};
+    Object.entries(k.policy_ref).forEach(([cid, ref]) => { (refCheck[ref] = refCheck[ref] || []).push(cid); });
+    view.innerHTML = `
+      <div class="page-head"><div><h1 class="page-title">Knowledge</h1><p class="page-lede">The AP policy, GST notes and past reviewer decisions the desk cites. Every check points at its clause; exceptions are matched to precedent by hybrid search.</p></div>
+        <span class="chip">${icon("spark")}${esc(k.retrieval)}</span></div>
+      <div class="kb-search panel panel-pad">
+        <label class="search big">${icon("search")}<input id="kq" type="search" placeholder="Try: supplier changed bank account · photo is blurry · split invoices over PO" aria-label="Search the knowledge base"></label>
+        <div id="kres" class="kres"></div>
+      </div>
+      <div class="kb-grid">
+        <section>
+          <h2 class="section-title">Policy and GST notes · ${pol.length + gst.length} clauses</h2>
+          <div class="kb-list">${Object.entries(bySection).map(([sec, cs]) => `<details class="kb-sec"><summary>${esc(sec)}<span class="sub-inline">${cs.length}</span></summary>
+            ${cs.map((c) => `<div class="kb-item"><div><span class="mono">${esc(c.ref)}</span> <b>${esc(c.title)}</b>${(refCheck[c.ref] || []).map((x) => ` <span class="chip">${esc(x)}</span>`).join("")}</div><p>${esc(c.text)}</p></div>`).join("")}</details>`).join("")}</div>
+        </section>
+        <section>
+          <h2 class="section-title">Past decisions · ${pre.length}</h2>
+          <ul class="cases">${pre.slice().reverse().map((c) => `<li><div class="case-top"><span class="mono">${esc(c.ref)}</span>${chip(c.decision === "approved" ? "approved" : c.decision === "rejected" ? "rejected" : "hold", c.decision)}<span class="sub-inline">${esc(c.vendor)} · ${esc(c.check)}${c.run_id ? ` · <a href="#/run/${esc(c.run_id)}">from ${esc(c.run_id)}</a>` : ""}</span></div><div class="case-facts">${esc(c.text)}</div></li>`).join("")}</ul>
+        </section>
+      </div>`;
+    let t;
+    $("#kq").addEventListener("input", (e) => {
+      clearTimeout(t);
+      const q = e.target.value;
+      t = setTimeout(async () => {
+        if (!q.trim()) { $("#kres").innerHTML = ""; return; }
+        const r = await api(`/api/knowledge/search?q=${encodeURIComponent(q)}&k=5`);
+        $("#kres").innerHTML = r.hits.length ? `<ol class="hits">${r.hits.map((h) => `<li><div><span class="mono">${esc(h.ref)}</span> <b>${esc(h.title)}</b><span class="rank">${h.bm25_rank ? `BM25 #${h.bm25_rank}` : "BM25 —"}${h.dense_rank ? ` · dense #${h.dense_rank} (${h.dense_sim})` : ""} · fused ${h.score}</span></div><p>${esc(h.text)}</p></li>`).join("")}</ol>` : `<p class="sub">No matches.</p>`;
+      }, 220);
+    });
+  }
+
   // ------------------------------------------------------------------ reset
   $("#reset-btn").addEventListener("click", async () => {
     if (S.batch) { toast("Wait for the scenarios to finish first."); return; }
     if (!confirm("Reset the demo? This clears every run and restores the ledger and PO balances.")) return;
     await api("/api/reset", { method: "POST" });
-    S.current = null; S.mounted = null; S.revealed.clear(); S.open.clear();
+    S.current = null; S.mounted = null; S.revealed.clear(); S.open.clear(); S.answers = {};
     await refreshRuns();
     toast("Demo reset. Ledger and PO balances restored.");
     if (location.hash === "#/process") router(); else location.hash = "#/process";

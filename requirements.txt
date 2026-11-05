@@ -6,3 +6,9 @@ pypdf==6.21.4
 python-multipart==0.0.32
 reportlab==5.1.0
 pillow==12.3.0
+# document vision: OpenCV clean-up + YOLO layout model run through ONNX Runtime (no torch at runtime)
+numpy==2.2.6
+opencv-python-headless==5.0.0.93
+onnxruntime==1.23.2
+# retrieval: local embeddings (BAAI/bge-small-en-v1.5, ONNX) for hybrid search
+fastembed==0.9.1

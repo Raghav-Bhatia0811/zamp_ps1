@@ -1,8 +1,12 @@
 .git
 .venv
+.venv-train
+build
+models/embed
 **/__pycache__
 data/app.db
 data/uploads
+data/artifacts
 data/eval_*.json
 docs
 .env

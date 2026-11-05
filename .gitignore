@@ -5,3 +5,7 @@ data/app.db
 data/uploads/
 .env
 .DS_Store
+data/artifacts/
+.venv-train/
+build/
+models/embed/

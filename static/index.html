@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ledgerline · Invoice Desk</title>
-  <meta name="description" content="Invoice processing from PDF to a reasoned payment decision.">
+  <meta name="description" content="Invoice processing from PDF or photo to a reasoned payment decision.">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2314213D'/%3E%3Cpath d='M9 11h14M9 16h9M9 21h6' stroke='%23B9D3BF' stroke-width='2.4' stroke-linecap='round'/%3E%3Cpath d='M19 21.5l2.2 2.2 4.3-4.6' stroke='%23B9D3BF' stroke-width='2.4' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -32,6 +32,7 @@
         <a href="#/process" data-nav="process"><span class="ico" data-icon="inbox"></span><span>Process</span></a>
         <a href="#/runs" data-nav="runs"><span class="ico" data-icon="list"></span><span>Runs</span><span class="nav-count" id="nav-count"></span></a>
         <a href="#/data" data-nav="data"><span class="ico" data-icon="book"></span><span>POs &amp; vendors</span></a>
+        <a href="#/knowledge" data-nav="knowledge"><span class="ico" data-icon="library"></span><span>Knowledge</span></a>
       </nav>
       <div class="rail-foot">
         <div class="engine" id="engine-status"></div>
@@ -52,7 +53,8 @@
       </div>
       <button class="btn-ghost sm" type="button" id="doc-close" aria-label="Close document"><span class="ico" data-icon="x"></span></button>
     </div>
-    <iframe id="doc-frame" title="Invoice PDF"></iframe>
+    <div class="drawer-tabs" id="doc-tabs"></div>
+    <div class="drawer-body" id="doc-body"></div>
   </aside>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="/app.js"></script>

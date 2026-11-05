@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ledgerline System Guide</title>
-<meta name="description" content="Ledgerline invoice processing system: how it works, with flowcharts, measured accuracy and AI model choice. Written in ASD-STE100 Simplified Technical English.">
+<meta name="description" content="Ledgerline invoice processing system: how it works, with flowcharts, image clean-up, layout detection, field verification, policy search, measured accuracy and AI model choice. Written in ASD-STE100 Simplified Technical English.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -146,6 +146,8 @@ td.id { font-family: var(--mono); font-size: 13px; color: var(--ink-2); white-sp
 .wire.p { grid-template-columns: 1fr 1.4fr 1fr; }
 .wire.r { grid-template-rows: 26px 10px 1fr; }
 .wire.d { grid-template-rows: 30px 1fr 1fr; }
+.wire.k { grid-template-columns: 1fr 1.6fr; }
+.screens.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .w.sage { background: var(--sage-soft); border-color: transparent; }
 .w.amber { background: var(--amber-soft); border-color: transparent; }
 
@@ -170,7 +172,7 @@ footer { margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--line);
   .keyfacts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .keyfacts div:nth-child(3) { border-left: 0; }
   .keyfacts div:nth-child(n+3) { border-top: 1px solid var(--line); }
-  .screens, .big3 { grid-template-columns: minmax(0, 1fr); }
+  .screens, .screens.four, .big3 { grid-template-columns: minmax(0, 1fr); }
   .big3 > div + div { border-left: 0; border-top: 1px solid var(--line); }
 }
 @media (max-width: 560px) {
@@ -196,13 +198,17 @@ footer { margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--line);
     <ol>
       <li><a href="#purpose">Purpose</a></li>
       <li><a href="#parts">Main parts</a></li>
-      <li><a href="#stages">The 7 stages</a></li>
+      <li><a href="#stages">The 10 stages</a></li>
+      <li><a href="#cleanup">Image clean-up</a></li>
+      <li><a href="#layout">Layout detection</a></li>
       <li><a href="#reader">The reader</a></li>
+      <li><a href="#verify">Field verification</a></li>
       <li><a href="#match">PO match</a></li>
       <li><a href="#checks">The checks</a></li>
       <li><a href="#duplicates">Duplicate check</a></li>
       <li><a href="#balance">PO balance check</a></li>
       <li><a href="#decision">Decision and routing</a></li>
+      <li><a href="#knowledge">Policy and precedent search</a></li>
       <li><a href="#live">Live view</a></li>
       <li><a href="#screens">The screens</a></li>
       <li><a href="#scenarios">Test scenarios</a></li>
@@ -221,124 +227,323 @@ footer { margin-top: 72px; padding-top: 20px; border-top: 1px solid var(--line);
         Ledgerline · Invoice Desk
       </div>
       <h1>How the invoice system works</h1>
-      <p class="lede">This document tells you how Ledgerline changes a vendor invoice PDF into a payment decision. It shows each part, each stage and each check. It also gives the measured accuracy of the results.</p>
+      <p class="lede">This document tells you how Ledgerline changes a vendor invoice into a payment decision. The invoice can be a PDF, a scan or a phone photo. The document shows each part, each stage and each check. It also gives the measured accuracy of the results.</p>
       <div class="meta">
         <span><b>Case study:</b> AI Solutions Analyst, PS-1 (Finance / AP)</span>
-        <span><b>Version:</b> 1.0, 4 Nov 2026</span>
+        <span><b>Version:</b> 2.0, 5 Nov 2026</span>
         <span><b>Writing rules:</b> ASD-STE100 Simplified Technical English</span>
         <span><b>Scope:</b> the main functions (approximately 80% of the system)</span>
       </div>
       <dl class="keyfacts">
-        <div><dt>Input</dt><dd>One invoice PDF (digital or scanned)</dd></div>
-        <div><dt>Output</dt><dd>Approved, On hold or Rejected, with reasons</dd></div>
-        <div><dt>Checks</dt><dd>13 fixed rules, each with an ID</dd></div>
-        <div><dt>Measured accuracy</dt><dd>7 of 7 correct decisions in each test set</dd></div>
+        <div><dt>Input</dt><dd>One invoice PDF or image (digital, scan or phone photo)</dd></div>
+        <div><dt>Output</dt><dd>Approved, On hold or Rejected, with reasons and policy clauses</dd></div>
+        <div><dt>Checks</dt><dd>16 fixed rules, each with an ID and a policy clause</dd></div>
+        <div><dt>Measured accuracy</dt><dd>10 of 10 correct decisions in each test set</dd></div>
       </dl>
     </header>
 
     <section id="purpose">
       <h2><span class="n">01</span>Purpose</h2>
-      <p>Ledgerline processes vendor invoices for an accounts payable (AP) team. The input is one invoice as a PDF file. The output is one decision: <span class="tag ok">Approved</span> <span class="tag hold">On hold</span> or <span class="tag rej">Rejected</span>.</p>
-      <p>The system shows each step while it operates. It also writes the reason for each decision. A person can examine each decision later.</p>
+      <p>Ledgerline processes vendor invoices for an accounts payable (AP) team. The input is one invoice as a PDF file or as an image. The image can be a phone photo. The output is one decision: <span class="tag ok">Approved</span> <span class="tag hold">On hold</span> or <span class="tag rej">Rejected</span>.</p>
+      <p>The system shows each step while it operates. It also writes the reason for each decision and the policy clause for each exception. A person can examine each decision later.</p>
       <div class="rule">
         <b>Main design rule</b>
         <p>The AI only reads the invoice. Fixed rules make the decision.</p>
       </div>
       <p>Thus, the system always gives the same decision for the same data. The AI cannot approve a payment. Each decision has a list of checks that a person can read.</p>
+      <p>A second rule applies: the system does not pay on a value that it cannot read clearly. Image clean-up makes a bad page easier to read. Field verification proves each value that it can. If a value is not clear, a person must examine it.</p>
     </section>
 
     <section id="parts">
       <h2><span class="n">02</span>Main parts</h2>
-      <p>The system has seven main parts. The diagram shows how they connect.</p>
+      <p>The system has 11 main parts. The diagram shows how they connect.</p>
       <figure>
         <div class="diagram"><pre class="mermaid">
 flowchart TB
-  B["Browser&lt;br&gt;the UI"] -- "Send PDF" --> S["Web server&lt;br&gt;FastAPI"]
+  B["Browser&lt;br&gt;the UI"] -- "Send PDF or image" --> S["Web server&lt;br&gt;FastAPI"]
   S -. "Live updates" .-> B
-  S -- "Start" --> P["Pipeline&lt;br&gt;7 stages"]
+  S -- "Start" --> P["Pipeline&lt;br&gt;10 stages"]
+  P --> V["Vision&lt;br&gt;clean-up and regions"]
+  V --> Y[("Layout model&lt;br&gt;YOLO11n, ONNX")]
   P --> R["Reader&lt;br&gt;AI model or OCR"]
-  P --> E["Rules engine&lt;br&gt;13 checks"]
+  P --> F["Verification&lt;br&gt;proof and OCR repair"]
+  P --> E["Rules engine&lt;br&gt;16 checks"]
+  P --> K["Knowledge&lt;br&gt;policy and precedents"]
   P --> D[("Database&lt;br&gt;runs and ledger")]
-  E --> M[("Master data&lt;br&gt;vendors, POs, limits")]
+  F --> M[("Master data&lt;br&gt;vendors, POs, limits")]
+  E --> M
         </pre></div>
         <figcaption>Figure 1. Main parts of the system</figcaption>
       </figure>
       <div class="table-wrap"><table>
         <thead><tr><th>Part</th><th>File</th><th>Function</th></tr></thead>
         <tbody>
-          <tr><td>Browser (UI)</td><td class="id">static/</td><td>Sends the PDF. Shows the stages, the decision and the history.</td></tr>
+          <tr><td>Browser (UI)</td><td class="id">static/</td><td>Sends the PDF or image. Shows the stages, the decision, the history and the knowledge base.</td></tr>
           <tr><td>Web server</td><td class="id">app/main.py</td><td>Receives requests. Starts one pipeline for each invoice.</td></tr>
-          <tr><td>Pipeline</td><td class="id">app/pipeline.py</td><td>Runs the 7 stages in sequence. Saves each result.</td></tr>
-          <tr><td>Reader</td><td class="id">app/extract.py</td><td>Changes the PDF into structured fields.</td></tr>
+          <tr><td>Pipeline</td><td class="id">app/pipeline.py</td><td>Runs the 10 stages in sequence. Saves each result.</td></tr>
+          <tr><td>Vision</td><td class="id">app/vision.py</td><td>Cleans up scans and photos. Measures legibility. Finds the regions of the page with the layout model.</td></tr>
+          <tr><td>Layout model</td><td class="id">models/layout-yolo.onnx</td><td>A YOLO11n detector. ONNX Runtime runs it on the CPU.</td></tr>
+          <tr><td>Reader</td><td class="id">app/extract.py</td><td>Changes the document into structured fields.</td></tr>
+          <tr><td>Verification</td><td class="id">app/verify.py</td><td>Proves each field. Repairs OCR errors only when the repair is proven. Gives each field a status.</td></tr>
           <tr><td>Rules engine</td><td class="id">app/rules.py</td><td>Does the checks. Makes the decision.</td></tr>
-          <tr><td>Database</td><td class="id">app/db.py</td><td>Keeps a full record of each run. Keeps the ledger of approved invoices.</td></tr>
+          <tr><td>Knowledge</td><td class="id">app/knowledge.py, knowledge/</td><td>Keeps the AP policy, the GST notes and the past decisions. Finds the policy clause and similar past decisions. Answers questions.</td></tr>
+          <tr><td>Database</td><td class="id">app/db.py</td><td>Keeps a full record of each run. Keeps the ledger of approved invoices and the reviewer notes.</td></tr>
           <tr><td>Master data</td><td class="id">data/master.json</td><td>Contains the approved vendors, the purchase orders (POs) and the limits.</td></tr>
         </tbody>
       </table></div>
     </section>
 
     <section id="stages">
-      <h2><span class="n">03</span>The 7 stages</h2>
-      <p>The pipeline does the stages in this sequence. Each stage gets a status: done, warning, hold or fail. The UI shows the status of each stage while it operates.</p>
+      <h2><span class="n">03</span>The 10 stages</h2>
+      <p>The pipeline does the stages in this sequence. Each stage gets a status: done, warning, hold, fail or skipped. The UI shows the status of each stage while it operates.</p>
       <figure>
         <div class="diagram"><pre class="mermaid">
 flowchart TD
-  IN(["Invoice PDF"]) --> S1
-  S1["Stage 1 · Receive document&lt;br&gt;page count, text or scan, fingerprint"] --> S2
-  S2["Stage 2 · Read invoice&lt;br&gt;AI model or OCR reads the fields"] --> S3
-  S3["Stage 3 · Identify vendor&lt;br&gt;GSTIN match, then name match"] --> S4
-  S4["Stage 4 · Validate invoice&lt;br&gt;fields, arithmetic, GST, bank, date"] --> S5
-  S5["Stage 5 · Match purchase order&lt;br&gt;printed PO, or the most probable PO"] --> S6
-  S6["Stage 6 · Run controls&lt;br&gt;duplicate, unit price, PO balance"] --> S7
-  S7["Stage 7 · Decide and route&lt;br&gt;decision, queue, next steps"] --> OUT
+  IN(["Invoice PDF or image"]) --> S1
+  S1["Stage 1 · Receive document&lt;br&gt;file type, text, scan or photo, fingerprint"] --> S2
+  S2["Stage 2 · Clean up image&lt;br&gt;flatten, turn upright, remove shadows, measure legibility"] --> S3
+  S3["Stage 3 · Find regions&lt;br&gt;YOLO finds blocks, stamps, signatures, handwriting"] --> S4
+  S4["Stage 4 · Read invoice&lt;br&gt;AI model or OCR reads the fields"] --> S5
+  S5["Stage 5 · Verify fields&lt;br&gt;check digit, IFSC, arithmetic, master data"] --> S6
+  S6["Stage 6 · Identify vendor&lt;br&gt;GSTIN match, then name match"] --> G
+  G{"Page legible?&lt;br&gt;check R00"} -- "Yes" --> S7
+  G -- "No" --> SK["Stages 7 to 9 skipped&lt;br&gt;ask for a clearer copy"]
+  S7["Stage 7 · Validate invoice&lt;br&gt;fields, arithmetic, GST, bank, date, signature"] --> S8
+  S8["Stage 8 · Match purchase order&lt;br&gt;printed PO, or the most probable PO"] --> S9
+  S9["Stage 9 · Run controls&lt;br&gt;duplicate, unit price, PO balance, stamps"] --> S10
+  SK --> S10
+  S10["Stage 10 · Decide and route&lt;br&gt;decision, queue, policy clause, past cases"] --> OUT
   OUT{{"Approved / On hold / Rejected"}}
+  class SK hold
         </pre></div>
         <figcaption>Figure 2. The sequence of stages</figcaption>
       </figure>
       <div class="table-wrap"><table>
         <thead><tr><th>Stage</th><th>What the system does</th><th>Tool</th></tr></thead>
         <tbody>
-          <tr><td>1. Receive document</td><td>Counts the pages. Finds if the PDF has text or is a scan. Makes a fingerprint (SHA-256) of the file.</td><td>pypdf</td></tr>
-          <tr><td>2. Read invoice</td><td>Reads the vendor, GSTIN, invoice number, dates, PO number, lines, tax, total, bank details and notes.</td><td>AI model, or OCR</td></tr>
-          <tr><td>3. Identify vendor</td><td>Compares the GSTIN with the vendor list. If there is no match, compares the name.</td><td>Rules</td></tr>
-          <tr><td>4. Validate invoice</td><td>Checks the fields, the vendor status, the arithmetic, the GST rate, the bank details and the date.</td><td>Rules</td></tr>
-          <tr><td>5. Match purchase order</td><td>Uses the PO number on the invoice. If there is no PO number, it finds the most probable PO.</td><td>Rules</td></tr>
-          <tr><td>6. Run controls</td><td>Looks for duplicates. Compares unit prices with the PO. Compares the total with the remaining PO balance.</td><td>Rules and ledger</td></tr>
-          <tr><td>7. Decide and route</td><td>Makes the decision. Sends the invoice to a queue. Writes the next steps and a draft email.</td><td>Rules</td></tr>
+          <tr><td>1. Receive document</td><td>Accepts a PDF or an image (JPG, PNG, TIFF or WebP). Uses the EXIF rotation of a photo. Finds if the file is a digital PDF, a scan or a photo. Counts the pages. Makes a fingerprint (SHA-256) of the file.</td><td>pypdf, Pillow</td></tr>
+          <tr><td>2. Clean up image</td><td>Makes a scan or a photo easier to read. Then measures the legibility of the clean page (check R00). A digital PDF needs no clean-up.</td><td>OpenCV, Tesseract OSD</td></tr>
+          <tr><td>3. Find regions</td><td>Finds the vendor block, invoice details, bill-to, line table, totals, bank block, stamps, signatures and handwriting. Reads the important regions again at a larger scale. Reads the text of each stamp.</td><td>YOLO11n, ONNX Runtime</td></tr>
+          <tr><td>4. Read invoice</td><td>Reads the vendor, GSTIN, invoice number, dates, PO number, lines, tax, total, bank details and notes.</td><td>AI model, or OCR</td></tr>
+          <tr><td>5. Verify fields</td><td>Proves each field with check digits, formats, arithmetic and master data. Repairs known OCR errors only when the repair is proven (check R08).</td><td>Rules</td></tr>
+          <tr><td>6. Identify vendor</td><td>Compares the GSTIN with the vendor list. If there is no match, compares the name.</td><td>Rules</td></tr>
+          <tr><td>7. Validate invoice</td><td>Checks the fields, the vendor status, the arithmetic, the GST rate, the bank details, the date and the signature.</td><td>Rules</td></tr>
+          <tr><td>8. Match purchase order</td><td>Uses the PO number on the invoice. If there is no PO number, it finds the most probable PO. Matches the lines by text or by meaning.</td><td>Rules and embeddings</td></tr>
+          <tr><td>9. Run controls</td><td>Looks for duplicates. Compares unit prices with the PO. Compares the total with the remaining PO balance. Looks for payment stamps and handwritten changes.</td><td>Rules, ledger and layout</td></tr>
+          <tr><td>10. Decide and route</td><td>Makes the decision. Sends the invoice to a queue. Adds the policy clause for each exception and similar past decisions. Writes the next steps and a draft email.</td><td>Rules and search</td></tr>
         </tbody>
       </table></div>
+      <div class="warning"><b>WARNING</b><p>If the page is not legible after clean-up, check R00 fails. Stages 7, 8 and 9 do not operate. The system does not check, and does not pay, values that it cannot read. The invoice goes on hold. The vendor gets a request for a clearer copy.</p></div>
     </section>
 
-    <section id="reader">
-      <h2><span class="n">04</span>The reader</h2>
-      <p>The reader is the only part that uses AI. It changes the PDF into structured fields. All readers give the fields in the same format. Thus, you can replace one reader with a different reader. The rules do not change.</p>
+    <section id="cleanup">
+      <h2><span class="n">04</span>Image clean-up</h2>
+      <p>Scans and phone photos are often bad. The page can be at an angle, upside down, dark, noisy or small. Stage 2 makes the page easier to read before the reader starts. A digital PDF has a text layer, so it does not need this stage.</p>
       <figure>
         <div class="diagram"><pre class="mermaid">
 flowchart TD
-  A{"AI key set?"} -- "Yes" --> C["AI model reads the PDF&lt;br&gt;output: JSON in a fixed schema"]
+  A(["Page image&lt;br&gt;scan or photo"]) --> P{"Photo?"}
+  P -- "Yes" --> W["Find the sheet of paper.&lt;br&gt;Flatten it (4-point warp)"]
+  P -- "No" --> O
+  W --> O["Turn the page upright&lt;br&gt;Tesseract OSD"]
+  O --> I["Invert dark header bands"]
+  I --> L["Remove shadows and uneven light"]
+  L --> N["Remove noise"]
+  N --> K["Straighten the text lines"]
+  K --> U["Make the page larger,&lt;br&gt;to approximately 300 dpi"]
+  U --> H["Sharpen soft text.&lt;br&gt;Increase the contrast"]
+  H --> M["OCR the clean page.&lt;br&gt;Give a legibility score, 0 to 100"]
+  M --> G{"Score 50&lt;br&gt;or more?"}
+  G -- "Yes" --> OK["R00 PASS&lt;br&gt;50 to 65 is a warning"]
+  G -- "No" --> HD["R00 HOLD&lt;br&gt;ask for a clearer copy"]
+  class OK ok
+  class HD hold
+        </pre></div>
+        <figcaption>Figure 3. The clean-up steps and the legibility gate</figcaption>
+      </figure>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Step</th><th>What the system does</th><th>When</th></tr></thead>
+        <tbody>
+          <tr><td>1. Find the page</td><td>Finds the sheet of paper in the photo. Cuts it from the background. Removes the perspective with a 4-point warp.</td><td>Photos only</td></tr>
+          <tr><td>2. Turn upright</td><td>Tesseract OSD finds a page that is sideways or upside down. The system turns it.</td><td>OSD confidence 1.5 or more</td></tr>
+          <tr><td>3. Invert dark bands</td><td>Some letterheads have white text on a dark band. The system changes this area to dark text on a light background.</td><td>Large dark bands only</td></tr>
+          <tr><td>4. Remove shadows</td><td>Divides the page by an estimate of the paper background. This removes shadows and uneven light.</td><td>Photos, and scans with low contrast</td></tr>
+          <tr><td>5. Remove noise</td><td>Removes speckle and sensor noise.</td><td>Noise level more than 2.2</td></tr>
+          <tr><td>6. Straighten</td><td>Measures the angle of the text lines. Turns the page to make them horizontal.</td><td>Angle 0.25° or more</td></tr>
+          <tr><td>7. Make larger</td><td>OCR needs approximately 300 dpi. The system makes a small page larger, to a maximum of 3 times.</td><td>Below 250 dpi</td></tr>
+          <tr><td>8. Sharpen</td><td>Sharpens soft text, if the noise is low. Then increases the contrast.</td><td>Sharpen: soft text only. Contrast: always</td></tr>
+        </tbody>
+      </table></div>
+      <p>The system does a step only when the page needs it. It writes each step in the log. The UI shows the page as received and the clean page.</p>
+      <div class="note"><b>NOTE</b><p>To find the page in a photo, the system examines the background (the desk) at the edge of the image. It does not look for white paper. A search for white paper cut off a dark letterhead in tests. The vendor name and GSTIN were on that letterhead.</p></div>
+
+      <h3>The legibility gate</h3>
+      <p>The system does not guess if a page is legible. It reads the clean page with OCR and measures the result. The score uses the mean OCR word confidence and the quantity of words found:</p>
+      <p><code>score = OCR confidence × (0.55 + 0.45 × coverage)</code>, where coverage is the number of words divided by 60, to a maximum of 1.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Score</th><th>Grade</th><th>Result of R00</th></tr></thead>
+        <tbody>
+          <tr><td class="num">80 to 100</td><td>Good</td><td><span class="tag ok">Pass</span></td></tr>
+          <tr><td class="num">66 to 79</td><td>Fair</td><td><span class="tag ok">Pass</span></td></tr>
+          <tr><td class="num">50 to 65</td><td>Poor</td><td><span class="tag">Warning only</span> each value is cross-checked</td></tr>
+          <tr><td class="num">0 to 49</td><td>Unreadable</td><td><span class="tag hold">Hold</span> ask the vendor for a clearer copy</td></tr>
+        </tbody>
+      </table></div>
+      <p>A digital PDF gets a score of 100. The system reads its text directly from the file.</p>
+      <div class="caution"><b>CAUTION</b><p>Do not type values from a page that failed R00. AP policy §2.2 does not permit values that are guessed. Ask the vendor for a clear copy, if possible the original PDF.</p></div>
+    </section>
+
+    <section id="layout">
+      <h2><span class="n">05</span>Layout detection</h2>
+      <p>Stage 3 finds the regions of the page. A small object detector (YOLO11n) does this work. ONNX Runtime runs the model on the CPU. The system does not need a GPU or PyTorch to run it.</p>
+      <figure>
+        <div class="diagram"><pre class="mermaid">
+flowchart TD
+  Y(["Layout model&lt;br&gt;on the clean page"]) --> T["Text regions&lt;br&gt;vendor, details, lines, totals, bank"]
+  Y --> ST["Stamp"]
+  Y --> HW["Handwriting"]
+  Y --> SG["Signature"]
+  T --> RR["Read each region again&lt;br&gt;by itself, at a larger scale"]
+  RR --> RD["Reader and verification"]
+  ST --> SR["Read the stamp text&lt;br&gt;for example PAID 14 OCT 2026"]
+  SR --> C14{"Check R14"}
+  HW --> C14
+  SG --> C15{"Check R15"}
+        </pre></div>
+        <figcaption>Figure 4. How the system uses each region</figcaption>
+      </figure>
+      <ul>
+        <li>On scans and photos, the system reads the vendor block, invoice details, line table, totals and bank block again, each by itself. A small region at a larger scale often gives a better OCR result.</li>
+        <li>A stamp is often in colour and at an angle. The system isolates the ink colour, uses the stamp frame to make it straight, and then reads it.</li>
+        <li>A stamp with “PAID”, “CANCELLED” or “VOID” puts the invoice on hold (R14). Other stamps, for example “RECEIVED”, give a warning only.</li>
+        <li>Handwriting on or near the totals, the bank details or the line items puts the invoice on hold (R14). Handwriting in other areas gives a warning only.</li>
+        <li>A signature on a paper invoice satisfies R15.</li>
+        <li>If the model file is not installed, the stage gives a warning. The reader reads the full page. Checks R14 and R15 do not operate.</li>
+      </ul>
+
+      <h3>The model</h3>
+      <div class="table-wrap"><table>
+        <tbody>
+          <tr><td>Model</td><td>YOLO11n (2.6 million parameters), fine-tuned from COCO weights</td></tr>
+          <tr><td>Training data</td><td>1,600 synthetic invoice pages from <code>scripts/synth_layout.py</code>: 1,408 for training, 192 for validation</td></tr>
+          <tr><td>Page types</td><td>Clean, scan, fax and phone photo, with random layouts, fonts, stamps, signatures and handwriting</td></tr>
+          <tr><td>Input size</td><td>640 pixels</td></tr>
+          <tr><td>File</td><td><code>models/layout-yolo.onnx</code> (10 MB). Results in <code>models/layout-yolo.json</code></td></tr>
+          <tr><td>Validation result</td><td>mAP@50 0.988 · mAP@50-95 0.877</td></tr>
+        </tbody>
+      </table></div>
+      <p>The model finds 9 classes. The table gives the validation result for each class (mAP@50-95).</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Class</th><th class="num">mAP@50-95</th><th>What the system does with it</th></tr></thead>
+        <tbody>
+          <tr><td>Vendor block</td><td class="num">0.909</td><td>Read again by itself</td></tr>
+          <tr><td>Invoice details</td><td class="num">0.871</td><td>Read again by itself</td></tr>
+          <tr><td>Bill to</td><td class="num">0.939</td><td>Shown to the reviewer</td></tr>
+          <tr><td>Line items</td><td class="num">0.924</td><td>Read again by itself</td></tr>
+          <tr><td>Totals</td><td class="num">0.920</td><td>Read again by itself</td></tr>
+          <tr><td>Bank details</td><td class="num">0.911</td><td>Read again by itself</td></tr>
+          <tr><td>Stamp</td><td class="num">0.912</td><td>Stamp text read. Used by R14</td></tr>
+          <tr><td>Signature</td><td class="num">0.843</td><td>Used by R15</td></tr>
+          <tr><td>Handwriting</td><td class="num part">0.661</td><td>Used by R14</td></tr>
+        </tbody>
+      </table></div>
+      <div class="warning"><b>WARNING</b><p>The validation pages are synthetic, the same as the training pages. These numbers do not show the accuracy on real invoices. Handwriting has the lowest result (0.661). Before use on real invoices, label 200 to 300 real pages and train the model again on them.</p></div>
+    </section>
+
+    <section id="reader">
+      <h2><span class="n">06</span>The reader</h2>
+      <p>The reader is the only part that uses AI to read the invoice. It changes the document into structured fields. All readers give the fields in the same format. Thus, you can replace one reader with a different reader. The rules do not change.</p>
+      <figure>
+        <div class="diagram"><pre class="mermaid">
+flowchart TD
+  A{"AI key set?"} -- "Yes" --> C["AI model reads the document&lt;br&gt;digital PDF, or the clean page images&lt;br&gt;output: JSON in a fixed schema"]
   A -- "No" --> L["Local reader"]
   C --> V{"Valid result?"}
   V -- "Yes" --> F
   V -- "No, or error" --> L
   L --> T{"Text layer?"}
   T -- "Yes" --> PT["pdftotext"]
-  T -- "No, it is a scan" --> OCR["Tesseract OCR"]
+  T -- "No, scan or photo" --> OCR["Tesseract OCR of the clean page&lt;br&gt;and of each region"]
   PT --> PP["Pattern parser"]
   OCR --> PP
   PP --> F(["Structured fields&lt;br&gt;same format for all readers"])
         </pre></div>
-        <figcaption>Figure 3. How the system selects a reader</figcaption>
+        <figcaption>Figure 5. How the system selects a reader</figcaption>
       </figure>
       <ul>
         <li>The AI model reads only. It does not calculate or correct values.</li>
+        <li>For a digital PDF, the AI model gets the PDF. For a scan or a photo, it gets the clean page images from stage 2.</li>
+        <li>The local reader uses the region reads from stage 3 first, for the fields that they contain.</li>
         <li>If a value is not on the invoice, the field is empty (null). The AI must not guess.</li>
         <li>If the AI fails, the system does not stop. It uses the local reader and writes the reason in the log.</li>
-        <li>The reader also gives a list of fields that it read with low confidence. Check R08 shows this list.</li>
+        <li>If the AI model reads a scan or a photo, the system also keeps the OCR read. Stage 5 compares the two reads (dual read).</li>
       </ul>
     </section>
 
+    <section id="verify">
+      <h2><span class="n">07</span>Field verification</h2>
+      <p>An invoice contains its own proofs. Stage 5 uses them to examine each value from the reader. Each field gets one status.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag ok">verified</span></td><td>A check digit, the arithmetic or the master data proves the value.</td></tr>
+          <tr><td><span class="tag ok">agreed</span></td><td>Two independent reads (AI model and OCR) gave the same value.</td></tr>
+          <tr><td><span class="tag">read</span></td><td>One clear read. There is no proof to compare it with.</td></tr>
+          <tr><td><span class="tag hold">repaired</span></td><td>The system corrected an OCR error. The UI shows the old value and the new value.</td></tr>
+          <tr><td><span class="tag hold">disputed</span></td><td>Two reads do not agree, and no proof shows which is correct.</td></tr>
+          <tr><td><span class="tag hold">low</span></td><td>The value was read with low OCR confidence.</td></tr>
+          <tr><td><span class="tag">missing</span></td><td>The value is not on the document.</td></tr>
+        </tbody>
+      </table></div>
+
+      <h3>The proofs</h3>
+      <ul>
+        <li><strong>GSTIN:</strong> the last character is a mod-36 check digit. The 15 characters also have a fixed pattern of letters and digits.</li>
+        <li><strong>IFSC:</strong> 4 letters, then “0”, then 6 characters. The first 4 letters (the bank code) must agree with the bank name.</li>
+        <li><strong>Account number:</strong> 9 to 18 digits only. It is verified if it is the same as the account in the vendor master.</li>
+        <li><strong>Arithmetic:</strong> quantity × rate = amount for each line. The lines add up to the subtotal. Subtotal + tax = total.</li>
+        <li><strong>Dates:</strong> each date is valid, and the due date is after the invoice date.</li>
+        <li><strong>Master data:</strong> a GSTIN in the vendor master proves the vendor name. A PO number in the PO register is verified.</li>
+      </ul>
+      <figure>
+        <div class="diagram"><pre class="mermaid">
+flowchart TD
+  A(["Value from the reader"]) --> P{"Does a proof&lt;br&gt;pass?"}
+  P -- "Yes" --> VER["verified"]
+  P -- "No" --> R{"Does one known&lt;br&gt;OCR error explain it?"}
+  R -- "Yes, and the fix&lt;br&gt;makes the proof pass" --> REP["repaired&lt;br&gt;old value shown"]
+  R -- "No" --> LOW["low, or left as printed&lt;br&gt;for check R04"]
+  P -- "No proof for this field" --> TWO{"Two reads?"}
+  TWO -- "Same value" --> AGR["agreed"]
+  TWO -- "Different value" --> DIS["disputed"]
+  TWO -- "One read" --> RD["read or low&lt;br&gt;from OCR confidence"]
+  class VER,AGR ok
+  class REP,DIS,LOW hold
+        </pre></div>
+        <figcaption>Figure 6. How a field gets its status (simplified)</figcaption>
+      </figure>
+
+      <h3>Rules for repairs</h3>
+      <ul>
+        <li>The system repairs only known OCR errors, for example O and 0, I and 1, 6 and 8.</li>
+        <li>The system repairs a value only when the new value is proven: the check digit passes, the master data agrees or the arithmetic is correct.</li>
+        <li>The system does not repair a wrong amount that the vendor printed. Check R04 fails and the invoice goes back to the vendor.</li>
+        <li>A repaired total or bank account still goes to a person. Check R08 holds the invoice.</li>
+        <li>A repaired GSTIN that is in the vendor master does not need a person. The check digit and the master data prove it (AP policy §4.5).</li>
+      </ul>
+
+      <h3>When a person must examine a value</h3>
+      <p>Check R08 holds the invoice for AP review if one of these conditions is true:</p>
+      <ul>
+        <li>The total, invoice number, bank account, IFSC or GSTIN has the status low or disputed.</li>
+        <li>The system repaired the total or the bank account.</li>
+        <li>On a scan or a photo, the totals agree with each other but not with the lines. Thus, the reader probably missed a line. This is a read problem, not a vendor error. The invoice goes to a person, not to the vendor. Check R04 does not fail for this reason.</li>
+      </ul>
+      <p>Stage 5 also gives a confidence score. This score is the mean confidence of all fields that are present.</p>
+    </section>
+
     <section id="match">
-      <h2><span class="n">05</span>Purchase order match</h2>
+      <h2><span class="n">08</span>Purchase order match</h2>
       <p>Each invoice must agree with a purchase order (PO). Some invoices show the PO number. Some invoices do not.</p>
       <figure>
         <div class="diagram"><pre class="mermaid">
@@ -355,32 +560,40 @@ flowchart TD
   class OK ok
   class H1,H2,H3,H4 hold
         </pre></div>
-        <figcaption>Figure 4. How the system finds the purchase order</figcaption>
+        <figcaption>Figure 7. How the system finds the purchase order</figcaption>
       </figure>
       <div class="note"><b>NOTE</b><p>The maximum score is 90% because a PO that is not printed on the invoice is never certain. An inferred PO always goes to a person. The system never approves it automatically.</p></div>
+      <h3>Line match by meaning</h3>
+      <p>A vendor can use different words from the PO for the same item. For example, “Photocopy sheets” on the invoice and “A4 copier paper” on the PO. The system first compares the text. If the text is different, it compares the meaning with embeddings (bge-small). A similarity of 0.82 or more is a match.</p>
+      <div class="caution"><b>CAUTION</b><p>Model numbers and sizes must agree. “HP 12A” and “HP 88A” are different items, also when the other words are the same. If the model numbers do not agree, the system does not match the lines.</p></div>
     </section>
 
     <section id="checks">
-      <h2><span class="n">06</span>The checks</h2>
-      <p>The rules engine does 13 checks. Each check has an ID. Each check has a result: pass, warning or fail. A failed check has a severity: reject or hold.</p>
+      <h2><span class="n">09</span>The checks</h2>
+      <p>The rules engine does 16 checks. Each check has an ID. Each check has a result: pass, warning or fail. A failed check has a severity: reject or hold. Each check refers to one clause of the AP policy in <code>knowledge/ap-policy.md</code>.</p>
       <div class="table-wrap"><table>
-        <thead><tr><th>ID</th><th>Check</th><th>If it fails</th><th>Stage</th></tr></thead>
+        <thead><tr><th>ID</th><th>Check</th><th>If it fails</th><th>Stage</th><th>Policy</th></tr></thead>
         <tbody>
-          <tr><td class="id">R01</td><td>Required fields are present</td><td><span class="tag hold">Hold</span></td><td>Validate</td></tr>
-          <tr><td class="id">R02</td><td>Vendor is approved</td><td><span class="tag rej">Reject</span></td><td>Validate</td></tr>
-          <tr><td class="id">R03</td><td>GSTIN is the same as on file</td><td><span class="tag hold">Hold</span></td><td>Validate</td></tr>
-          <tr><td class="id">R04</td><td>Arithmetic is correct (lines + tax = total)</td><td><span class="tag hold">Hold</span></td><td>Validate</td></tr>
-          <tr><td class="id">R05</td><td>GST rate is correct for the vendor</td><td><span class="tag hold">Hold</span></td><td>Validate</td></tr>
-          <tr><td class="id">R06</td><td>Bank details are the same as on file</td><td><span class="tag hold">Hold</span> fraud risk</td><td>Validate</td></tr>
-          <tr><td class="id">R07</td><td>Invoice date is possible</td><td><span class="tag hold">Hold</span></td><td>Validate</td></tr>
-          <tr><td class="id">R08</td><td>Fields were read with good confidence</td><td><span class="tag">Warning only</span></td><td>Validate</td></tr>
-          <tr><td class="id">R09</td><td>Purchase order is found</td><td><span class="tag hold">Hold</span></td><td>Match</td></tr>
-          <tr><td class="id">R10</td><td>Invoice is not a duplicate</td><td><span class="tag rej">Reject</span> exact · <span class="tag hold">Hold</span> possible</td><td>Controls</td></tr>
-          <tr><td class="id">R11</td><td>Each line is on the PO</td><td><span class="tag hold">Hold</span></td><td>Controls</td></tr>
-          <tr><td class="id">R12</td><td>Unit prices are within 2% of the PO</td><td><span class="tag hold">Hold</span></td><td>Controls</td></tr>
-          <tr><td class="id">R13</td><td>Total is within the remaining PO balance</td><td><span class="tag hold">Hold</span></td><td>Controls</td></tr>
+          <tr><td class="id">R00</td><td>Document is legible (OCR confidence after clean-up)</td><td><span class="tag hold">Hold</span> vendor follow-up</td><td>Clean up</td><td class="id">§2.2</td></tr>
+          <tr><td class="id">R01</td><td>Required fields are present</td><td><span class="tag hold">Hold</span></td><td>Validate</td><td class="id">§4.1</td></tr>
+          <tr><td class="id">R02</td><td>Vendor is approved</td><td><span class="tag rej">Reject</span></td><td>Validate</td><td class="id">§3.1</td></tr>
+          <tr><td class="id">R03</td><td>GSTIN is the same as on file</td><td><span class="tag hold">Hold</span></td><td>Validate</td><td class="id">§3.3</td></tr>
+          <tr><td class="id">R04</td><td>Arithmetic is correct (lines + tax = total)</td><td><span class="tag hold">Hold</span></td><td>Validate</td><td class="id">§4.2</td></tr>
+          <tr><td class="id">R05</td><td>GST rate is correct for the vendor</td><td><span class="tag hold">Hold</span></td><td>Validate</td><td class="id">§4.3</td></tr>
+          <tr><td class="id">R06</td><td>Bank details are the same as on file</td><td><span class="tag hold">Hold</span> fraud risk</td><td>Validate</td><td class="id">§6.2</td></tr>
+          <tr><td class="id">R07</td><td>Invoice date is possible</td><td><span class="tag hold">Hold</span></td><td>Validate</td><td class="id">§4.4</td></tr>
+          <tr><td class="id">R08</td><td>Critical fields read reliably (total, bank details, invoice number, GSTIN)</td><td><span class="tag hold">Hold</span> AP review</td><td>Verify</td><td class="id">§4.5</td></tr>
+          <tr><td class="id">R09</td><td>Purchase order is found (an inferred PO always holds)</td><td><span class="tag hold">Hold</span></td><td>Match</td><td class="id">§5.2</td></tr>
+          <tr><td class="id">R10</td><td>Invoice is not a duplicate</td><td><span class="tag rej">Reject</span> exact · <span class="tag hold">Hold</span> possible</td><td>Controls</td><td class="id">§6.1</td></tr>
+          <tr><td class="id">R11</td><td>Each line is on the PO (by text or by meaning)</td><td><span class="tag hold">Hold</span></td><td>Controls</td><td class="id">§5.3</td></tr>
+          <tr><td class="id">R12</td><td>Unit prices are within 2% of the PO</td><td><span class="tag hold">Hold</span></td><td>Controls</td><td class="id">§5.4</td></tr>
+          <tr><td class="id">R13</td><td>Total is within the remaining PO balance</td><td><span class="tag hold">Hold</span></td><td>Controls</td><td class="id">§5.5</td></tr>
+          <tr><td class="id">R14</td><td>No payment stamps or handwritten changes (PAID or CANCELLED stamp, handwriting on amounts or bank details)</td><td><span class="tag hold">Hold</span></td><td>Controls</td><td class="id">§2.3–2.4</td></tr>
+          <tr><td class="id">R15</td><td>Signed (paper invoices)</td><td><span class="tag">Warning only</span></td><td>Validate</td><td class="id">§2.5</td></tr>
         </tbody>
       </table></div>
+      <p>An explicit table in <code>app/knowledge.py</code> connects each check ID to its clause. The system does not use search to find the clause. Thus, the clause that the system shows is always the correct clause.</p>
+      <div class="note"><b>NOTE</b><p>Checks R14 and R15 need the layout model. A computer-generated invoice, or a digital PDF, does not need a signature. If check R00 fails, the checks of stages 7, 8 and 9 do not operate.</p></div>
       <p>The limits are in the file <code>data/master.json</code>. You can change them without a change to the code.</p>
       <div class="table-wrap"><table>
         <thead><tr><th>Limit</th><th class="num">Value</th></tr></thead>
@@ -394,7 +607,7 @@ flowchart TD
     </section>
 
     <section id="duplicates">
-      <h2><span class="n">07</span>Duplicate check</h2>
+      <h2><span class="n">10</span>Duplicate check</h2>
       <p>A vendor can send the same invoice two times. Sometimes the number has a different format. The system removes symbols and zeros before it compares numbers. Thus, “AFS/0042” and “AFS-42” are the same invoice.</p>
       <figure>
         <div class="diagram"><pre class="mermaid">
@@ -411,13 +624,13 @@ flowchart TD
   class H hold
   class P ok
         </pre></div>
-        <figcaption>Figure 5. The duplicate check (R10)</figcaption>
+        <figcaption>Figure 8. The duplicate check (R10)</figcaption>
       </figure>
       <div class="note"><b>NOTE</b><p>The time window is short (7 days) on purpose. Many vendors send the same amount each month for a contract. A long window holds these correct invoices.</p></div>
     </section>
 
     <section id="balance">
-      <h2><span class="n">08</span>PO balance check</h2>
+      <h2><span class="n">11</span>PO balance check</h2>
       <p>A vendor can split one PO into many invoices. Each invoice can look correct by itself. The system adds all approved invoices for the PO. Then it adds the new invoice. If the sum is more than the PO, the invoice goes on hold.</p>
       <div class="balance" role="img" aria-label="PO-1002 example: 4 lakh ordered. Invoice 1 1.6 lakh and invoice 2 1.6 lakh use 3.2 lakh. Invoice 3 of 1.2 lakh goes over the PO by 40 thousand.">
         <div style="font-weight:600">Example: PO-1002, 20 trips, ₹4,00,000</div>
@@ -436,7 +649,7 @@ flowchart TD
     </section>
 
     <section id="decision">
-      <h2><span class="n">09</span>Decision and routing</h2>
+      <h2><span class="n">12</span>Decision and routing</h2>
       <p>After all checks, the system makes one decision. A reject check is more important than a hold check.</p>
       <figure>
         <div class="diagram"><pre class="mermaid">
@@ -444,35 +657,73 @@ flowchart TD
   A(["All checks are complete"]) --> B{"A REJECT&lt;br&gt;check failed?"}
   B -- "Yes" --> RJ["REJECTED&lt;br&gt;no payment, vendor email draft"]
   B -- "No" --> C{"A HOLD&lt;br&gt;check failed?"}
-  C -- "Yes" --> HD["ON HOLD"]
+  C -- "Yes" --> HD["ON HOLD&lt;br&gt;policy clause, similar past decisions"]
   C -- "No" --> AP["APPROVED"]
   HD --> PR{"Person&lt;br&gt;reviews"}
   PR -- "Approve" --> AP2["Approved by reviewer"]
   PR -- "Reject" --> RJ2["Rejected by reviewer"]
   AP --> L["Post to the ledger.&lt;br&gt;The PO balance decreases."]
   AP2 --> L
+  AP2 --> N["The reviewer note&lt;br&gt;becomes a precedent"]
+  RJ2 --> N
   class RJ,RJ2 rej
   class HD hold
   class AP,AP2,L ok
         </pre></div>
-        <figcaption>Figure 6. How the system makes the decision</figcaption>
+        <figcaption>Figure 9. How the system makes the decision</figcaption>
       </figure>
-      <p>The system also sends each decision to a queue. The queue tells the team who must do the next step.</p>
+      <p>The system also sends each decision to a queue. The queue tells the team who must do the next step. If many checks fail, the queue of the first failed check applies.</p>
       <div class="table-wrap"><table>
         <thead><tr><th>Cause</th><th>Queue</th></tr></thead>
         <tbody>
           <tr><td>All checks pass</td><td>Payment run</td></tr>
           <tr><td>Bank details changed</td><td>Treasury verification</td></tr>
-          <tr><td>Unit price or PO balance problem, unknown vendor</td><td>Procurement</td></tr>
-          <tr><td>Duplicate, inferred PO, GSTIN or GST rate problem</td><td>AP review</td></tr>
-          <tr><td>Fields missing, arithmetic not correct</td><td>Vendor follow-up</td></tr>
+          <tr><td>Unit price or PO balance problem, line not on the PO, PO not found, unknown vendor</td><td>Procurement</td></tr>
+          <tr><td>Duplicate, inferred PO, GSTIN or GST rate problem, critical field not read reliably (R08), payment stamp or handwritten change (R14)</td><td>AP review</td></tr>
+          <tr><td>Page not legible (R00), fields missing, arithmetic not correct</td><td>Vendor follow-up</td></tr>
         </tbody>
       </table></div>
+      <p>For each check that did not pass, the system shows the text of its policy clause. For an invoice that is not approved, the system also shows up to 3 similar past decisions. Refer to <a href="#knowledge">Policy and precedent search</a>.</p>
       <p>When the vendor must send something, the system writes a draft email. The system does not send the email. A person reads it first.</p>
     </section>
 
+    <section id="knowledge">
+      <h2><span class="n">13</span>Policy and precedent search</h2>
+      <p>The folder <code>knowledge/</code> contains the AP policy, the GST notes and 16 past reviewer decisions. The system adds each new reviewer note to this set as a new precedent. The system uses this knowledge for three tasks:</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Task</th><th>How it operates</th></tr></thead>
+        <tbody>
+          <tr><td>Policy clause for a check</td><td>A fixed table connects each check to its clause. This is a lookup, not a search.</td></tr>
+          <tr><td>Similar past decisions</td><td>For each failed check (up to 3), the system searches the precedents for that same check. It shows up to 3 results. Results for the same vendor come first.</td></tr>
+          <tr><td>Ask about this invoice</td><td>The reviewer types a question. The system finds 6 policy passages and 3 past decisions. It sends them, with the run record, to Claude. Claude writes a short answer with citations.</td></tr>
+        </tbody>
+      </table></div>
+      <figure>
+        <div class="diagram"><pre class="mermaid">
+flowchart TD
+  Q(["Question, or a failed check"]) --> BM["BM25 keyword search&lt;br&gt;exact words, numbers, check IDs"]
+  Q --> DN["Dense search&lt;br&gt;bge-small embeddings, meaning"]
+  BM --> RRF["Reciprocal rank fusion&lt;br&gt;one list of results"]
+  DN --> RRF
+  RRF --> PS["Policy passages and&lt;br&gt;past decisions"]
+  PS --> C{"Claude connected?"}
+  C -- "Yes" --> AN["Written answer&lt;br&gt;with citations"]
+  C -- "No" --> PL["Show the passages"]
+        </pre></div>
+        <figcaption>Figure 10. Hybrid search and the “Ask about this invoice” function</figcaption>
+      </figure>
+      <ul>
+        <li>The search is hybrid. BM25 finds exact words, for example “R06” or “IFSC”. The embeddings (BAAI/bge-small-en-v1.5, ONNX on the CPU) find the meaning, for example “supplier moved banks”. Reciprocal rank fusion (RRF) combines the two lists.</li>
+        <li>If the embedding model is not available, the search uses BM25 only. The system tells you this.</li>
+        <li>Each claim in the answer has a citation, for example [§6.2] for a policy clause, [P-102] for a past decision, or [run] for the run record.</li>
+        <li>The answer gives advice only. It does not approve an invoice. It does not change a decision.</li>
+        <li>If Claude is not connected, or the call fails, the system shows the passages that it found.</li>
+      </ul>
+      <div class="note"><b>NOTE</b><p>The search for past decisions is advisory. If the search fails, the decision does not change. The system writes the error in the log.</p></div>
+    </section>
+
     <section id="live">
-      <h2><span class="n">10</span>Live view</h2>
+      <h2><span class="n">14</span>Live view</h2>
       <p>The UI shows each stage while the pipeline operates. The diagram shows the messages between the parts.</p>
       <figure>
         <div class="diagram"><pre class="mermaid">
@@ -481,7 +732,7 @@ sequenceDiagram
   participant S as Web server
   participant P as Pipeline
   participant D as Database
-  B->>S: Send the PDF
+  B->>S: Send the PDF or image
   S->>P: Start the pipeline
   S-->>B: Run ID
   B->>S: Open the event stream
@@ -493,7 +744,7 @@ sequenceDiagram
   end
   S-->>B: Send the end event
         </pre></div>
-        <figcaption>Figure 7. Messages during one run (Server-Sent Events)</figcaption>
+        <figcaption>Figure 11. Messages during one run (Server-Sent Events)</figcaption>
       </figure>
       <ul>
         <li>The pipeline saves the run record after each stage.</li>
@@ -503,11 +754,11 @@ sequenceDiagram
     </section>
 
     <section id="screens">
-      <h2><span class="n">11</span>The screens</h2>
-      <div class="screens">
+      <h2><span class="n">15</span>The screens</h2>
+      <div class="screens four">
         <div class="screen">
           <div class="wire p" aria-hidden="true"><div class="w"></div><div class="w"></div><div class="w amber"></div></div>
-          <div class="body"><b>Process</b>Upload area, reader selection, 7 demo scenarios, live timeline, decision panel, PDF viewer.</div>
+          <div class="body"><b>Process</b>Upload area (PDF or image), reader selection, 10 demo scenarios, live timeline, decision panel with policy clauses and similar past decisions, “Ask about this invoice”, and the document viewer (As received, Cleaned, Regions).</div>
         </div>
         <div class="screen">
           <div class="wire r" aria-hidden="true"><div class="w"></div><div class="w sage"></div><div class="w"></div></div>
@@ -517,12 +768,16 @@ sequenceDiagram
           <div class="wire d" aria-hidden="true"><div class="w"></div><div class="w"></div><div class="w"></div></div>
           <div class="body"><b>POs and vendors</b>Policy limits, PO balances, the ledger and the vendor list.</div>
         </div>
+        <div class="screen">
+          <div class="wire k" aria-hidden="true"><div class="w"></div><div class="w sage"></div></div>
+          <div class="body"><b>Knowledge</b>The AP policy, the GST notes and the past reviewer decisions. A search box uses the hybrid search.</div>
+        </div>
       </div>
     </section>
 
     <section id="scenarios">
-      <h2><span class="n">12</span>Test scenarios</h2>
-      <p>The folder <code>samples/</code> contains 7 invoices. Each invoice tests one behaviour.</p>
+      <h2><span class="n">16</span>Test scenarios</h2>
+      <p>The folder <code>samples/</code> contains 10 invoices: 7 digital PDFs, 2 scans and 1 phone photo. Each invoice tests one behaviour.</p>
       <div class="table-wrap"><table>
         <thead><tr><th>#</th><th>Scenario</th><th>Result</th><th>Check that decides</th></tr></thead>
         <tbody>
@@ -530,149 +785,169 @@ sequenceDiagram
           <tr><td>2</td><td>Instalment 2 of 3. Same amount as instalment 1.</td><td><span class="tag ok">Approved</span></td><td>All pass</td></tr>
           <tr><td>3</td><td>Instalment 3. The sum is more than the PO.</td><td><span class="tag hold">On hold</span></td><td class="id">R13</td></tr>
           <tr><td>4</td><td>A paid invoice sent again as “AFS/0042”.</td><td><span class="tag rej">Rejected</span></td><td class="id">R10</td></tr>
-          <tr><td>5</td><td>Scanned invoice. No PO number is printed.</td><td><span class="tag hold">On hold</span></td><td class="id">R09</td></tr>
+          <tr><td>5</td><td>Scanned invoice. No PO number is printed. The system infers PO-1004 at 90%.</td><td><span class="tag hold">On hold</span></td><td class="id">R09</td></tr>
           <tr><td>6</td><td>Total is correct, but one unit price is 10% more than the PO.</td><td><span class="tag hold">On hold</span></td><td class="id">R12</td></tr>
           <tr><td>7</td><td>New bank account on the invoice.</td><td><span class="tag hold">On hold</span></td><td class="id">R06</td></tr>
+          <tr><td>8</td><td>Phone photo (JPG): angled, with a shadow and a dark letterhead. The line words are different from the PO. The system matches all 3 lines to PO-1008 by meaning.</td><td><span class="tag ok">Approved</span></td><td>All pass</td></tr>
+          <tr><td>9</td><td>Fax that is too faint to read. Legibility is 21 of 100.</td><td><span class="tag hold">On hold</span></td><td class="id">R00</td></tr>
+          <tr><td>10</td><td>Upside-down scan with a PAID stamp and a pen change to the total. The system turns the page upright and reads the stamp as “PAID 14 OCT 2026”.</td><td><span class="tag hold">On hold</span></td><td class="id">R14</td></tr>
         </tbody>
       </table></div>
     </section>
 
     <section id="accuracy">
-      <h2><span class="n">13</span>Accuracy of results</h2>
-      <p>We measured the accuracy with the script <code>scripts/evaluate.py</code>. The script compares each result with the known correct value. The correct values come from the data that made the sample PDFs.</p>
+      <h2><span class="n">17</span>Accuracy of results</h2>
+      <p>We measured the accuracy with the script <code>scripts/evaluate.py --engine local --ablation</code>. The script sends each invoice through the full pipeline. It compares each result with the known correct value. The correct values come from the data that made the sample documents.</p>
 
       <h3>Method</h3>
       <ul>
-        <li><strong>Reader:</strong> the local reader (pdftotext and Tesseract OCR). We did not measure Claude or Gemini. No AI key was available during the test.</li>
-        <li><strong>Field accuracy:</strong> 11 fields for each invoice: GSTIN, invoice number, invoice date, due date, PO number, subtotal, tax, total, bank account, IFSC and all line items.</li>
+        <li><strong>Reader:</strong> the local reader (pdftotext and Tesseract OCR). We did not measure Claude or Gemini.</li>
+        <li><strong>Field accuracy:</strong> 11 fields for each invoice: GSTIN, invoice number, invoice date, due date, PO number, subtotal, tax, total, bank account, IFSC and all line items. In the original set, the result does not include the fax (sample 9). This page is illegible on purpose, so it has no fields to score.</li>
         <li><strong>Decision accuracy:</strong> the decision is the expected decision.</li>
         <li><strong>Right reason:</strong> the decision is correct, and the expected check caused it.</li>
+        <li><strong>Ablation:</strong> the heavy scans and the photos again, with image clean-up and region reads off (<code>VISION_ENHANCE=0</code>, <code>REGION_OCR=0</code>).</li>
       </ul>
       <div class="table-wrap"><table>
         <thead><tr><th>Test set</th><th>Contents</th></tr></thead>
         <tbody>
-          <tr><td>Original</td><td>The 7 samples as supplied: 6 digital PDFs and 1 scan.</td></tr>
-          <tr><td>Light scans</td><td>All 7 invoices as scans: 170 dpi, 0.45° skew, light noise.</td></tr>
-          <tr><td>Heavy scans</td><td>All 7 invoices as poor scans: 120 dpi, 0.9° skew, more noise and blur.</td></tr>
+          <tr><td>Original</td><td>The 10 samples as supplied: 7 digital PDFs, 2 scans and 1 phone photo.</td></tr>
+          <tr><td>Light scans</td><td>All 10 invoices made again as scans: 170 dpi, 0.45° skew, light noise.</td></tr>
+          <tr><td>Heavy scans</td><td>All 10 invoices as poor scans: 120 dpi, 1.2° skew, more noise and blur.</td></tr>
+          <tr><td>Phone photos</td><td>All 10 invoices as phone photos: angled, with a shadow, on a desk, JPG.</td></tr>
         </tbody>
       </table></div>
+      <div class="note"><b>NOTE</b><p>In the sets that are made again, sample 9 is a clear page. Thus, its correct decision in these sets is Approved.</p></div>
 
       <h3>Results</h3>
       <div class="big3">
-        <div><div class="k">Original</div><div class="v">100%</div><div class="s">fields correct · 7/7 decisions · 7/7 right reason</div></div>
-        <div><div class="k">Light scans</div><div class="v">92.2%</div><div class="s">fields correct · 7/7 decisions · 6/7 right reason</div></div>
-        <div><div class="k">Heavy scans</div><div class="v">90.9%</div><div class="s">fields correct · 7/7 decisions · 6/7 right reason</div></div>
+        <div><div class="k">Vision on</div><div class="v">40/40</div><div class="s">correct decisions, all with the right reason, in 4 test sets</div></div>
+        <div><div class="k">Phone photos, vision on</div><div class="v">97.3%</div><div class="s">fields correct · 10/10 decisions</div></div>
+        <div><div class="k">Phone photos, vision off</div><div class="v">41.8%</div><div class="s">fields correct · 5/10 decisions · 3/10 right reason</div></div>
       </div>
       <div class="table-wrap"><table>
-        <thead><tr><th>Field</th><th class="c">Original</th><th class="c">Light scans</th><th class="c">Heavy scans</th></tr></thead>
+        <thead><tr><th>Test set</th><th class="num">Field accuracy</th><th class="c">Fields correct</th><th class="c">Correct decisions</th><th class="c">Correct decision and reason</th></tr></thead>
         <tbody>
-          <tr><td>Invoice date</td><td class="c full">7/7</td><td class="c full">7/7</td><td class="c full">7/7</td></tr>
-          <tr><td>Due date</td><td class="c full">7/7</td><td class="c full">7/7</td><td class="c full">7/7</td></tr>
-          <tr><td>PO number</td><td class="c full">7/7</td><td class="c full">7/7</td><td class="c full">7/7</td></tr>
-          <tr><td>Subtotal</td><td class="c full">7/7</td><td class="c full">7/7</td><td class="c full">7/7</td></tr>
-          <tr><td>Tax</td><td class="c full">7/7</td><td class="c full">7/7</td><td class="c full">7/7</td></tr>
-          <tr><td>Total</td><td class="c full">7/7</td><td class="c full">7/7</td><td class="c full">7/7</td></tr>
-          <tr><td>Invoice number</td><td class="c full">7/7</td><td class="c full">7/7</td><td class="c part">5/7</td></tr>
-          <tr><td>Vendor GSTIN</td><td class="c full">7/7</td><td class="c part">6/7</td><td class="c part">6/7</td></tr>
-          <tr><td>Bank account</td><td class="c full">7/7</td><td class="c part">5/7</td><td class="c part">6/7</td></tr>
-          <tr><td>IFSC code</td><td class="c full">7/7</td><td class="c part">5/7</td><td class="c full">7/7</td></tr>
-          <tr><td>All line items</td><td class="c full">7/7</td><td class="c part">6/7</td><td class="c part">4/7</td></tr>
-          <tr><td><strong>All fields</strong></td><td class="c"><strong>77/77</strong></td><td class="c"><strong>71/77</strong></td><td class="c"><strong>70/77</strong></td></tr>
-          <tr><td>Average time per invoice</td><td class="c">0.6 s</td><td class="c">3.4 s</td><td class="c">4.3 s</td></tr>
+          <tr><td>Original (7 digital, 2 scans, 1 photo)</td><td class="num">99.0%</td><td class="c">98/99</td><td class="c full">10/10</td><td class="c full">10/10</td></tr>
+          <tr><td>Light scans (170 dpi)</td><td class="num">97.3%</td><td class="c">107/110</td><td class="c full">10/10</td><td class="c full">10/10</td></tr>
+          <tr><td>Heavy scans (120 dpi, skew, noise, blur)</td><td class="num">99.1%</td><td class="c">109/110</td><td class="c full">10/10</td><td class="c full">10/10</td></tr>
+          <tr><td>Phone photos (angled, shadowed, JPG)</td><td class="num">97.3%</td><td class="c">107/110</td><td class="c full">10/10</td><td class="c full">10/10</td></tr>
+          <tr><td>Heavy scans, vision off</td><td class="num">85.5%</td><td class="c">94/110</td><td class="c part">9/10</td><td class="c part">8/10</td></tr>
+          <tr><td>Phone photos, vision off</td><td class="num">41.8%</td><td class="c">46/110</td><td class="c part">5/10</td><td class="c part">3/10</td></tr>
         </tbody>
       </table></div>
 
       <h3>What the results show</h3>
       <ol>
-        <li>On digital PDFs, the local reader read all fields correctly.</li>
-        <li>On scans, the reader made errors in long codes: GSTIN, bank numbers, invoice numbers and line items. Dates and totals were always correct.</li>
-        <li><strong>No reading error caused a wrong approval.</strong> When the reader made an error, a check found a problem. Usually, check R04 (arithmetic) failed. Thus, the invoice went on hold for a person. The system fails safe.</li>
-        <li>In 2 cases, the decision was correct but the reason was different. Invoice 6 went on hold because of R04 (arithmetic), not R12 (unit price). The person sees a different reason.</li>
+        <li>With vision on, the system made the correct decision, for the correct reason, for all 40 invoices in the 4 test sets.</li>
+        <li>The ablation shows the value of the vision stages. Without clean-up and region reads, field accuracy on heavy scans falls from 99.1% to 85.5%. On phone photos it falls from 97.3% to 41.8%. Only 5 of 10 photo decisions are then correct. Image clean-up and region reads make photos usable.</li>
+        <li>In the original set, only one field is not correct: the total of sample 10. This total has a handwritten strike-through. Thus, the system correctly does not read it, and check R14 holds the invoice. This is the correct result.</li>
         <li>If the reader cannot read the bank account, check R06 does not fail. The payment run must always use the account in the vendor master, not the account on the invoice.</li>
       </ol>
-      <div class="warning"><b>WARNING</b><p>These results come from 7 invoices in 3 layouts that we made. Real invoices have more formats, handwriting, stamps and pages. Do not use these numbers as the accuracy on real invoices.</p></div>
+      <div class="warning"><b>WARNING</b><p>These results come from 10 invoices that we made, in a small number of layouts. Real invoices have more formats, handwriting, stamps and pages. Do not use these numbers as the accuracy on real invoices.</p></div>
 
       <h3>Measure the AI reader</h3>
-      <p>We expect an AI reader to read scans better than OCR, but we did not measure it. Do this procedure before the demo:</p>
+      <p>We expect an AI reader to read scans and photos better than OCR, but we did not measure it. Do this procedure before the demo:</p>
       <ol class="steps">
         <li>Set the AI key: <code>export ANTHROPIC_API_KEY=...</code></li>
-        <li>Run the script: <code>.venv/bin/python scripts/evaluate.py --engine claude</code></li>
+        <li>Run the script: <code>.venv/bin/python scripts/evaluate.py --engine claude --ablation</code></li>
         <li>Read the results in the terminal and in <code>data/eval_claude.json</code>.</li>
         <li>Put the new numbers in this section.</li>
       </ol>
-      <div class="caution"><b>CAUTION</b><p>The script clears the demo database. Run it before the demo, not during the demo.</p></div>
+      <div class="note"><b>NOTE</b><p>The script uses a temporary database. Your demo data does not change.</p></div>
     </section>
 
     <section id="models">
-      <h2><span class="n">14</span>AI model: Claude or Gemini</h2>
-      <p><strong>Claude is not necessary.</strong> The case study permits any AI model. In this system, the AI does only one task: stage 2, read the invoice. All other stages are fixed rules. They do not change when the AI model changes.</p>
-      <p>Gemini can do the same task. It reads PDFs directly, also scanned PDFs. It can also give JSON in a fixed schema. A limit of 1,500 requests is sufficient. One invoice uses one request.</p>
+      <h2><span class="n">18</span>AI model: Claude or Gemini</h2>
+      <p><strong>Claude is not necessary.</strong> The case study permits any AI model. In the pipeline, the AI model (Claude or Gemini) does only one task: stage 4, read the invoice. The other stages use image processing, two small local models (layout and embeddings) and fixed rules. They do not change when the AI model changes.</p>
+      <p>The AI also writes the answer for “Ask about this invoice”. This answer gives advice only. Without an AI model, the system shows the passages that it found.</p>
+      <p>Gemini can do the same reading task. It reads PDFs and images directly, also scans and photos. It can also give JSON in a fixed schema. A limit of 1,500 requests is sufficient. One invoice uses one request.</p>
       <div class="table-wrap"><table>
         <thead><tr><th></th><th>Claude</th><th>Gemini</th><th>Local reader</th></tr></thead>
         <tbody>
-          <tr><td>Status in the system</td><td>Installed, not tested</td><td>Not installed (approximately 40 lines of code)</td><td>Installed and measured</td></tr>
-          <tr><td>Reads scanned PDFs</td><td>Yes</td><td>Yes</td><td>Yes, with OCR errors</td></tr>
+          <tr><td>Status in the system</td><td>Installed, not measured</td><td>Not installed (approximately 40 lines of code)</td><td>Installed and measured</td></tr>
+          <tr><td>Reads scans and photos</td><td>Yes, the clean page images</td><td>Yes</td><td>Yes, OCR after clean-up</td></tr>
           <tr><td>JSON in a fixed schema</td><td>Yes</td><td>Yes (different schema format)</td><td>Yes (pattern parser)</td></tr>
+          <tr><td>Ask about this invoice</td><td>Written answer with citations</td><td>Not installed</td><td>Passages only</td></tr>
           <tr><td>Cost</td><td>Paid key</td><td>Free tier available</td><td>Free</td></tr>
           <tr><td>Internet necessary</td><td>Yes</td><td>Yes</td><td>No</td></tr>
         </tbody>
       </table></div>
       <h3>Changes necessary for Gemini</h3>
       <ol>
-        <li>Add a Gemini reader in <code>app/extract.py</code>. It must give the same fields as the Claude reader.</li>
+        <li>Add a Gemini reader in <code>app/extract.py</code>. It must give the same fields as the Claude reader. For scans and photos, send the clean page images.</li>
         <li>Add the setting <code>GEMINI_API_KEY</code>. When this key is set, the system uses Gemini.</li>
         <li>Add a “Gemini” option to the reader selection in the UI.</li>
+        <li>In <code>app/pipeline.py</code> and <code>app/verify.py</code>, use a Gemini read the same as a Claude read. Thus, the dual read with OCR also operates for Gemini.</li>
         <li>Keep the local reader as the fallback.</li>
       </ol>
-      <div class="caution"><b>CAUTION</b><p>Free keys also have a limit for each minute. Run “Run all seven in order” one time before the demo to make sure that the limit is sufficient.</p></div>
+      <div class="caution"><b>CAUTION</b><p>Free keys also have a limit for each minute. Run “Run all 10 in order” one time before the demo to make sure that the limit is sufficient.</p></div>
       <div class="note"><b>NOTE</b><p>On the free tier, Google can use the data that you send to improve its products. This is satisfactory for the test invoices. For real invoices, use a paid tier or an enterprise agreement.</p></div>
     </section>
 
     <section id="operate">
-      <h2><span class="n">15</span>Procedure: operate the system</h2>
+      <h2><span class="n">19</span>Procedure: operate the system</h2>
       <ol class="steps">
         <li>Open a terminal in the folder <code>invoice-desk</code>.</li>
         <li>Set the AI key, if you have one: <code>export ANTHROPIC_API_KEY=...</code></li>
         <li>Start the server: <code>.venv/bin/uvicorn app.main:app --port 8000</code></li>
         <li>Open <code>http://localhost:8000</code> in a browser.</li>
         <li>Click <strong>Reset demo</strong> to clear old data.</li>
-        <li>Click a scenario, or drop an invoice PDF on the upload area.</li>
+        <li>Click a scenario, or drop an invoice PDF or image (for example a phone photo) on the upload area.</li>
         <li>Look at the stages while they operate.</li>
         <li>Click a stage to see its details.</li>
-        <li>For an invoice on hold, write a note. Then click <strong>Approve and post</strong> or <strong>Reject</strong>.</li>
+        <li>Open the document. Compare the tabs <strong>As received</strong>, <strong>Cleaned</strong> and <strong>Regions</strong>.</li>
+        <li>For an invoice on hold, read the policy clause and the similar past decisions. Type a question in <strong>Ask about this invoice</strong>, if necessary.</li>
+        <li>Write a note. Then click <strong>Approve and post</strong> or <strong>Reject</strong>.</li>
+        <li>Click <strong>Knowledge</strong> to see your note as a new precedent.</li>
         <li>Click <strong>Runs</strong> to see the history of all invoices.</li>
       </ol>
       <div class="caution"><b>CAUTION</b><p>If you send the same file two times, the system rejects the second file as a duplicate. Click <strong>Reset demo</strong> before each new demonstration.</p></div>
+      <div class="note"><b>NOTE</b><p>At the first start, the system downloads the embedding model (approximately 65 MB) into <code>models/embed/</code>. Without a network connection, the system uses keyword search only.</p></div>
     </section>
 
     <section id="limits">
-      <h2><span class="n">16</span>Assumptions and limits</h2>
+      <h2><span class="n">20</span>Assumptions and limits</h2>
       <ul>
         <li>The buyer is one company in India. All amounts are in INR. The system accepts CGST + SGST and IGST.</li>
         <li>The PO balance uses the subtotal before tax. A different check (R05) examines the tax.</li>
-        <li>The ledger starts with 2 invoices “imported from ERP”. Thus, the duplicate and PO balance checks have history.</li>
+        <li>The ledger starts with 2 invoices “imported from ERP”. The knowledge base starts with 16 past reviewer decisions. Thus, the duplicate, PO balance and precedent functions have history.</li>
         <li>The upload area replaces an email inbox. The same pipeline can receive invoices from an inbox.</li>
         <li>The system compares the invoice with the PO only. It does not compare with the goods receipt (no 3-way match).</li>
         <li>The system does not make payments. It sends approved invoices to the payment run queue.</li>
+        <li>The layout model was trained and validated on synthetic pages only. We did not measure it on real invoices.</li>
+        <li>The system detects handwriting. It does not read handwriting. Detection is sufficient for the policy, because the policy does not accept handwritten changes.</li>
+        <li>The clean-up and layout stages use a maximum of 4 pages for each document.</li>
+        <li>The layout model uses Ultralytics YOLO (AGPL-3.0 licence). For commercial use, buy a licence or use a different detector with the same ONNX interface.</li>
       </ul>
     </section>
 
     <section id="terms">
-      <h2><span class="n">17</span>Terms</h2>
+      <h2><span class="n">21</span>Terms</h2>
       <div class="table-wrap"><table>
         <tbody>
           <tr><td><strong>AP</strong></td><td>Accounts payable. The team that pays vendors.</td></tr>
           <tr><td><strong>PO</strong></td><td>Purchase order. The document that approves a purchase before the invoice.</td></tr>
-          <tr><td><strong>GSTIN</strong></td><td>The tax registration number of a company in India.</td></tr>
+          <tr><td><strong>GSTIN</strong></td><td>The tax registration number of a company in India. Its last character is a check digit.</td></tr>
           <tr><td><strong>IFSC</strong></td><td>The code that identifies a bank branch in India.</td></tr>
           <tr><td><strong>Ledger</strong></td><td>The list of invoices that are approved for payment.</td></tr>
           <tr><td><strong>OCR</strong></td><td>Optical character recognition. Software that reads text in an image.</td></tr>
+          <tr><td><strong>OSD</strong></td><td>Orientation and script detection. A Tesseract function that finds if a page is sideways or upside down.</td></tr>
+          <tr><td><strong>Legibility</strong></td><td>How clearly the system can read a page. The system measures it with OCR after clean-up, as a score from 0 to 100.</td></tr>
+          <tr><td><strong>Region</strong></td><td>One area of the page that the layout model finds, for example the totals, the bank block or a stamp.</td></tr>
+          <tr><td><strong>YOLO</strong></td><td>A type of object detector. The system uses YOLO11n to find the regions.</td></tr>
+          <tr><td><strong>mAP</strong></td><td>Mean average precision. A measure of detector accuracy, from 0 to 1. mAP@50-95 is stricter than mAP@50.</td></tr>
+          <tr><td><strong>Precedent</strong></td><td>A past reviewer decision on the same type of exception, with the reviewer note.</td></tr>
+          <tr><td><strong>Hybrid search</strong></td><td>A search that combines keyword search (BM25) and search by meaning (embeddings).</td></tr>
+          <tr><td><strong>Embedding</strong></td><td>A list of numbers that shows the meaning of a text. Texts with a similar meaning have similar embeddings.</td></tr>
+          <tr><td><strong>RRF</strong></td><td>Reciprocal rank fusion. A method that combines two lists of search results into one list.</td></tr>
+          <tr><td><strong>Dual read</strong></td><td>Two independent reads of the same page (AI model and OCR). The system compares them.</td></tr>
+          <tr><td><strong>Ablation</strong></td><td>A test with one part of the system off. It shows the value of that part.</td></tr>
           <tr><td><strong>Fingerprint</strong></td><td>A SHA-256 value of the file. Two identical files have the same value.</td></tr>
           <tr><td><strong>SSE</strong></td><td>Server-Sent Events. The method that sends live updates to the browser.</td></tr>
           <tr><td><strong>Fail safe</strong></td><td>When an error occurs, the system goes to the safe state (on hold), not to approval.</td></tr>
         </tbody>
       </table></div>
-      <footer>Ledgerline · Invoice Desk · System guide v1.0 · Accuracy measured on 4 Nov 2026 with the local reader. The diagrams need an internet connection to draw. Without a connection, they show as text.</footer>
+      <footer>Ledgerline · Invoice Desk · System guide v2.0 · Accuracy measured on 5 Nov 2026 with the local reader. The diagrams need an internet connection to draw. Without a connection, they show as text.</footer>
     </section>
   </main>
 </div>

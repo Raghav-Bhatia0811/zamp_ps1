@@ -1,7 +1,9 @@
-"""Generate the demo invoice PDFs in samples/.
+"""Generate the demo invoices in samples/.
 
-Three vendor layouts (classic, modern, letterhead) plus one scanned copy,
-so extraction has to cope with different formats, labels and tax splits.
+Three vendor layouts (classic, modern, letterhead), and five kinds of paper:
+clean digital PDFs, a scanned copy, a phone photo (angled, shadowed, JPG), a
+fax too faint to read, and an upside-down scan with a PAID stamp and a pen
+edit next to the total. Extraction has to cope with all of them.
 Run:  .venv/bin/python scripts/make_samples.py
 """
 import json
@@ -42,7 +44,7 @@ def totals(inv):
     return sub, tax, sub + tax
 
 
-BUYER = ["Halden Foods Pvt Ltd", "Plot 14, MIDC Bhosari", "Pune, Maharashtra 411026", "GSTIN: 27AAACH1234F1Z5"]
+BUYER = ["Halden Foods Pvt Ltd", "Plot 14, MIDC Bhosari", "Pune, Maharashtra 411026", "GSTIN: 27AAACH1234F1Z3"]
 
 
 def tax_rows(inv, tax):
@@ -98,6 +100,7 @@ def draw_totals(c, inv, y, label_x=330, value_x=545, total_label="Grand Total"):
     c.setFont("Helvetica-Bold", 10.5)
     c.drawString(label_x, y, f"{total_label} (INR)")
     c.drawRightString(value_x, y, inr(tot))
+    inv["_total_at"] = (value_x, y)
     return y
 
 
@@ -223,6 +226,64 @@ def layout_letterhead(c, inv):
     c.drawRightString(W - 52, 64, "Authorised Signatory")
 
 
+# ---------- ink added on paper after printing: stamps and pen
+HAND_FONT = None
+
+
+def _hand_font():
+    global HAND_FONT
+    if HAND_FONT is None:
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        HAND_FONT = "Helvetica-Oblique"
+        for f in ("/usr/share/fonts/truetype/tlwg/Purisa.ttf", "/usr/share/fonts/truetype/tlwg/Purisa-Oblique.ttf"):
+            if Path(f).exists():
+                pdfmetrics.registerFont(TTFont("Hand", f))
+                HAND_FONT = "Hand"
+                break
+    return HAND_FONT
+
+
+def draw_marks(c, inv):
+    marks = inv.get("marks") or {}
+    tx, ty = inv.get("_total_at", (545, 300))
+    if marks.get("stamp"):
+        c.saveState()
+        c.translate(tx - 250, ty - 70)
+        c.rotate(14)
+        red = HexColor("#c0262d")
+        c.setStrokeColor(red)
+        c.setFillColor(red)
+        c.setFillAlpha(0.85)
+        c.setStrokeAlpha(0.85)
+        c.setLineWidth(3)
+        c.roundRect(0, 0, 150, 58, 6, stroke=1, fill=0)
+        c.setLineWidth(1)
+        c.roundRect(5, 5, 140, 48, 4, stroke=1, fill=0)
+        c.setFont("Helvetica-Bold", 28)
+        c.drawCentredString(75, 22, marks["stamp"])
+        c.setFont("Helvetica-Bold", 8)
+        c.drawCentredString(75, 10, marks.get("stamp_sub", ""))
+        c.restoreState()
+    if marks.get("pen"):
+        blue = HexColor("#1f3a9a")
+        c.saveState()
+        c.setStrokeColor(blue)
+        c.setFillColor(blue)
+        c.setLineWidth(1.6)
+        c.line(tx - 62, ty + 3, tx + 4, ty + 5)          # strike through the printed total
+        c.translate(tx - 120, ty - 26)
+        c.rotate(-5)
+        c.setFont(_hand_font(), 15)
+        c.drawString(0, 0, marks["pen"])
+        c.restoreState()
+
+
+def draw(c, inv):
+    inv["layout"](c, inv)
+    draw_marks(c, inv)
+
+
 def load_vendor(master, vid, address):
     v = next(x for x in master["vendors"] if x["id"] == vid)
     return {"name": v["name"], "gstin": v["gstin"], "address": address,
@@ -275,6 +336,22 @@ def build_samples():
              lines=[("Filter coffee powder 1kg", "0901", 30, 640.00),
                     ("Paper cups 150ml (pack of 100)", "4823", 60, 185.00),
                     ("Assorted tea bags (box of 100)", "0902", 20, 390.00)]),
+        # --- messy documents
+        dict(file="08_phone_photo_northwind.jpg", layout=layout_modern, vendor=nw, bank=nw_bank, post="photo",
+             number="INV-2026-0463", date="03 Nov 2026", due="03 Dec 2026", po="PO-1008",
+             period="Nov 2026", tax_mode="cgst_sgst", rate=18,
+             lines=[("Photocopy sheets A4 75 GSM (carton, 5 reams)", "4802", 20, 1450.00),
+                    ("Ballpoint pen, blue ink - pack of 50", "9608", 30, 260.00),
+                    ("Stapler 24/6, heavy-duty metal", "8472", 10, 540.00)]),
+        dict(file="09_illegible_fax_kestrel.pdf", layout=layout_classic, vendor=ke, bank=ke_bank, post="fax",
+             number="KIT/2026/1203", date="02 Nov 2026", due="02 Dec 2026", po="PO-1007",
+             tax_mode="igst", rate=18,
+             lines=[("Annual maintenance contract, 40 endpoints", "998713", 1, 120000.00)]),
+        dict(file="10_stamped_upside_down_apex.pdf", layout=layout_letterhead, vendor=ap, bank=ap_bank, post="flip",
+             number="AFS/0051", date="31-10-2026", due="30-11-2026", po="PO-1009",
+             tax_mode="cgst_sgst", rate=18, marks={"stamp": "PAID", "stamp_sub": "14 OCT 2026", "pen": "Revised 96,500 /-"},
+             lines=[("Housekeeping services, October 2026", "998533", 1, 84000.00),
+                    ("Pest control treatment", "998531", 1, 6500.00)]),
     ]
 
 
@@ -296,18 +373,95 @@ def scanify(pdf_path: Path):
         img.save(pdf_path, "PDF", resolution=170)
 
 
+def _render(pdf_path: Path, dpi: int) -> Image.Image:
+    with tempfile.TemporaryDirectory() as td:
+        subprocess.run(["pdftoppm", "-r", str(dpi), "-png", str(pdf_path), f"{td}/p"], check=True)
+        return Image.open(next(Path(td).glob("p*.png"))).convert("RGB")
+
+
+def photoify(pdf_path: Path, out_jpg: Path, seed: int = 3):
+    """A phone photo of the printed page: on a desk, at an angle, with a shadow across it."""
+    import cv2
+    import numpy as np
+    page = np.array(_render(pdf_path, 200))
+    h, w = page.shape[:2]
+    rng = np.random.default_rng(seed)
+    bw, bh = int(w * 1.28), int(h * 1.2)
+    yy, xx = np.mgrid[0:bh, 0:bw].astype(np.float32)
+    grain = (np.sin(xx / 9 + np.sin(yy / 60) * 3) * 10 + rng.normal(0, 6, (bh, bw))).astype(np.float32)
+    desk = np.clip(np.stack([118 + grain, 84 + grain * .8, 52 + grain * .6], -1), 0, 255).astype(np.uint8)
+    ox, oy = (bw - w) / 2, (bh - h) / 2
+    src = np.float32([[0, 0], [w, 0], [w, h], [0, h]])
+    dst = np.float32([[ox + 70, oy + 40], [ox + w - 30, oy - 20], [ox + w + 40, oy + h - 30], [ox - 40, oy + h + 25]])
+    M = cv2.getPerspectiveTransform(src, dst)
+    warped = cv2.warpPerspective(page, M, (bw, bh), flags=cv2.INTER_CUBIC)
+    mask = cv2.warpPerspective(np.full((h, w), 255, np.uint8), M, (bw, bh))
+    img = np.where(mask[..., None] > 0, warped, desk).astype(np.float32)
+    light = 1 - 0.22 * (xx / bw) - 0.10 * (yy / bh)                       # window light from the left
+    shadow = 1 - 0.38 * np.exp(-(((xx - bw * .78) / (bw * .22)) ** 2 + ((yy - bh * .35) / (bh * .5)) ** 2))  # phone/hand shadow
+    img *= (light * shadow)[..., None] * np.array([1.0, .97, .9], np.float32)
+    img = cv2.GaussianBlur(np.clip(img, 0, 255).astype(np.uint8), (3, 3), 0)
+    Image.fromarray(img).save(out_jpg, "JPEG", quality=84)
+
+
+def faxify(pdf_path: Path, seed: int = 5):
+    """A fax that came through badly: 60 dpi, smeared, faded, streaked."""
+    import numpy as np
+    img = _render(pdf_path, 200).convert("L")
+    w, h = img.size
+    small = img.resize((w * 60 // 200, h * 60 // 200), Image.BILINEAR).filter(ImageFilter.GaussianBlur(1.3))
+    a = np.array(small.resize((w * 100 // 200, h * 100 // 200), Image.BILINEAR), dtype=np.float32)
+    rng = np.random.default_rng(seed)
+    a = 255 - (255 - a) * 0.42                                            # faded toner
+    a += rng.normal(0, 22, a.shape)
+    for x in rng.choice(a.shape[1], 14, replace=False):                   # vertical streaks
+        a[:, x:x + 2] -= rng.uniform(40, 90)
+    for y in rng.choice(a.shape[0], 30, replace=False):                   # dropped scan lines
+        a[y:y + 2, :] = 255
+    a = np.clip(a, 0, 255).astype(np.uint8)
+    Image.fromarray(a).save(pdf_path, "PDF", resolution=100)
+
+
+def flip_scan(pdf_path: Path, seed: int = 9):
+    """Scanned upside down on a flatbed, with a little skew and noise."""
+    img = _render(pdf_path, 170)
+    img = img.rotate(180.6, resample=Image.BICUBIC, fillcolor=(255, 255, 255))
+    rnd = random.Random(seed)
+    px = img.load()
+    w, h = img.size
+    for _ in range(w * h // 220):
+        x, y = rnd.randrange(w), rnd.randrange(h)
+        v = max(0, px[x, y][0] - rnd.randint(40, 110))
+        px[x, y] = (v, v, v)
+    img.filter(ImageFilter.GaussianBlur(0.4)).save(pdf_path, "PDF", resolution=170)
+
+
+def render_pdf(inv, path: Path):
+    c = canvas.Canvas(str(path), pagesize=A4)
+    c.setTitle(f"Invoice {inv['number']}")
+    c.setAuthor(inv["vendor"]["name"])
+    draw(c, inv)
+    c.showPage()
+    c.save()
+
+
 def main():
     OUT.mkdir(exist_ok=True)
     for inv in build_samples():
         path = OUT / inv["file"]
-        c = canvas.Canvas(str(path), pagesize=A4)
-        c.setTitle(f"Invoice {inv['number']}")
-        c.setAuthor(inv["vendor"]["name"])
-        inv["layout"](c, inv)
-        c.showPage()
-        c.save()
-        if inv.get("scan"):
-            scanify(path)
+        if inv.get("post") == "photo":
+            with tempfile.TemporaryDirectory() as td:
+                tmp = Path(td) / "page.pdf"
+                render_pdf(inv, tmp)
+                photoify(tmp, path)
+        else:
+            render_pdf(inv, path)
+            if inv.get("scan"):
+                scanify(path)
+            elif inv.get("post") == "fax":
+                faxify(path)
+            elif inv.get("post") == "flip":
+                flip_scan(path)
         print("wrote", path.name, "total", inr(totals(inv)[2]))
 
 

@@ -1,0 +1,31 @@
+{
+  "base": "yolo11n.pt",
+  "epochs_trained": 10,
+  "imgsz": 640,
+  "train_images": 1408,
+  "val_images": 192,
+  "mAP50": 0.988,
+  "mAP50_95": 0.877,
+  "per_class_mAP50_95": {
+    "vendor_block": 0.909,
+    "invoice_meta": 0.871,
+    "bill_to": 0.939,
+    "line_items": 0.924,
+    "totals": 0.92,
+    "bank_details": 0.911,
+    "stamp": 0.912,
+    "signature": 0.843,
+    "handwriting": 0.661
+  },
+  "classes": [
+    "vendor_block",
+    "invoice_meta",
+    "bill_to",
+    "line_items",
+    "totals",
+    "bank_details",
+    "stamp",
+    "signature",
+    "handwriting"
+  ]
+}

@@ -1,4 +1,6 @@
-"""Stages 3-6: normalise, validate, match to a PO, run controls, decide.
+"""Decision stages: normalise, validate, match to a PO, run controls, decide.
+Also the document checks R00 (legibility), R08 (read reliability), R14 (stamps and
+handwriting) and R15 (signature) that turn vision and verification results into checks.
 
 Everything in here is deterministic. Given the same extracted fields, master
 data and ledger, it always reaches the same decision, and each decision is a
@@ -16,9 +18,10 @@ PASS, WARN, FAIL = "pass", "warn", "fail"
 FAIL_SHORT = {
     "R01": "required fields missing", "R02": "vendor not approved", "R03": "GSTIN mismatch",
     "R04": "totals don't add up", "R05": "wrong GST rate", "R06": "bank details changed",
-    "R07": "invoice date problem", "R08": "low-confidence read", "R09": "PO not confirmed",
+    "R07": "invoice date problem", "R08": "amount or bank detail not read reliably", "R09": "PO not confirmed",
     "R10": "duplicate invoice", "R11": "line not on the PO", "R12": "unit price above PO",
-    "R13": "over the PO balance",
+    "R13": "over the PO balance", "R00": "document not legible", "R14": "stamp or handwritten change",
+    "R15": "no signature",
 }
 
 
@@ -149,7 +152,7 @@ def validate(n: dict, vendor: dict | None, master: dict, today: date) -> list[di
     line_sum = round(sum((li.get("amount") or 0) for li in n.get("line_items") or []), 2)
     sub, tot = n.get("subtotal"), n.get("total")
     problems = list(bad_lines)
-    if sub is not None and n.get("line_items") and abs(line_sum - sub) > 1:
+    if sub is not None and n.get("line_items") and abs(line_sum - sub) > 1 and not n.get("line_items_incomplete"):
         problems.append(f"lines add to {money(line_sum)} but subtotal says {money(sub)}")
     if sub is not None and tot is not None and abs(sub + n["tax_total"] - tot) > 1:
         problems.append(f"subtotal {money(sub)} + tax {money(n['tax_total'])} ≠ total {money(tot)}")
@@ -157,6 +160,9 @@ def validate(n: dict, vendor: dict | None, master: dict, today: date) -> list[di
         out.append(check("R04", "Invoice arithmetic adds up", FAIL, "; ".join(problems).capitalize() + ".", HOLD,
                          queue="Vendor follow-up", action="Return to vendor for a corrected invoice.",
                          vendor_ask="a corrected invoice (the totals do not add up)"))
+    elif tot is None:
+        out.append(check("R04", "Invoice arithmetic adds up", PASS,
+                         f"Lines add up to {money(line_sum)}; no readable total to check against (see R01)."))
     else:
         out.append(check("R04", "Invoice arithmetic adds up", PASS,
                          f"Lines {money(line_sum)} + tax {money(n['tax_total'])} = {money(tot)}."))
@@ -199,10 +205,88 @@ def validate(n: dict, vendor: dict | None, master: dict, today: date) -> list[di
         except ValueError:
             out.append(check("R07", "Invoice date is plausible", WARN, f"Could not parse date “{d}”."))
 
-    if n.get("low_confidence_fields"):
-        out.append(check("R08", "Extraction confidence", WARN,
-                         "Read with low confidence: " + ", ".join(n["low_confidence_fields"]) + ". Cross-checked against master data below."))
     return out
+
+
+# ---------------------------------------------------------------- document checks (vision + verification)
+
+def legibility_check(vision: dict) -> dict:
+    """R00: can the document be read without guessing? Measured by OCR confidence on the cleaned page."""
+    if vision.get("source") == "text":
+        return check("R00", "Document is legible", PASS, "Digital PDF: text is read from the file itself.")
+    grade, score = vision.get("grade"), vision.get("score")
+    if grade == "unreadable":
+        return check("R00", "Document is legible", FAIL,
+                     f"Even after clean-up the page reads at {score}/100 (OCR confidence {vision.get('ocr_conf')}%, "
+                     f"{vision.get('words')} words). Amounts and bank details cannot be read without guessing.", HOLD,
+                     queue="Vendor follow-up", action="Reply to the sender for a clearer copy, ideally the original PDF. Do not key values from this copy.",
+                     vendor_ask="a clearer copy of the invoice, ideally the original PDF (the copy we received is not legible)")
+    if grade == "poor":
+        return check("R00", "Document is legible", WARN,
+                     f"Readable but poor ({score}/100). Every value is cross-checked before use.")
+    return check("R00", "Document is legible", PASS, f"Legibility {score}/100 after clean-up ({grade}).")
+
+
+def confidence_check(ver: dict) -> dict:
+    """R08: critical values (amount, bank details, invoice no., GSTIN) must be read reliably or proven."""
+    crit = ver.get("critical_issues") or []
+    if crit:
+        def desc(c):
+            nm = c["field"].replace("_", " ").replace("bank ifsc", "IFSC").replace("vendor gstin", "GSTIN")
+            if c["status"] == "repaired":
+                return f"{nm} was corrected by the system ({c.get('evidence', '')})"
+            if c["field"] == "line_items":
+                return c.get("evidence", "line items incomplete")
+            if c["status"] == "disputed":
+                return f"{nm}: {c.get('evidence', 'two reads disagree')}"
+            return f"{nm} read with {c.get('conf', 0)}% confidence"
+        return check("R08", "Critical fields read reliably", FAIL, "; ".join(desc(c) for c in crit) + ".", HOLD,
+                     queue="AP review", action="Confirm the flagged values against the document before payment.")
+    low = [k for k, v in (ver.get("fields") or {}).items() if v["status"] in ("low", "disputed")]
+    if low:
+        return check("R08", "Critical fields read reliably", WARN,
+                     "Critical fields proven or read clearly; low confidence only on " + ", ".join(k.replace("_", " ") for k in low) + ".")
+    n_ver = sum(1 for v in (ver.get("fields") or {}).values() if v["status"] in ("verified", "agreed"))
+    return check("R08", "Critical fields read reliably", PASS, f"{n_ver} fields proven by checksum, arithmetic or master data.")
+
+
+def markings_check(layout: dict) -> dict:
+    """R14: payment stamps and handwritten changes found by the layout detector."""
+    stamps = [d for d in layout.get("detections", []) if d["cls"] == "stamp"]
+    hands = [d for d in layout.get("detections", []) if d["cls"] == "handwriting"]
+    bad = [s for s in stamps if (s.get("read") or {}).get("keyword") in ("PAID", "CANCELLED", "CANCELED", "VOID")]
+    on_money = [h for h in hands if h.get("near")]
+    if bad or on_money:
+        parts = []
+        if bad:
+            parts.append("a “" + bad[0]["read"]["keyword"] + "” stamp" + (f" ({bad[0]['read']['text']})" if bad[0]["read"].get("text") else ""))
+        if on_money:
+            parts.append("handwriting over the " + " and ".join(sorted({h["near"] for h in on_money})))
+        action = []
+        if bad:
+            action.append("Check whether this was already settled (petty cash, corporate card, an earlier payment run) before paying.")
+        if on_money:
+            action.append("Handwritten changes are not accepted: ask the vendor for a corrected printed invoice or a credit note.")
+        return check("R14", "No payment stamps or handwritten changes", FAIL,
+                     "The page carries " + " and ".join(parts) + ".", HOLD, queue="AP review", action=" ".join(action),
+                     vendor_ask="a corrected printed invoice (the copy we received has handwritten changes)" if on_money else None)
+    if stamps or hands:
+        what = [f"{len(stamps)} stamp{'s' if len(stamps) != 1 else ''}" + (" (" + ", ".join(sorted({(s.get('read') or {}).get('keyword') or 'unread' for s in stamps})) + ")" if stamps else "")] if stamps else []
+        if hands:
+            what.append(f"{len(hands)} handwritten note{'s' if len(hands) != 1 else ''} away from amounts and bank details")
+        return check("R14", "No payment stamps or handwritten changes", WARN, "Found " + " and ".join(what) + "; none affects payment.")
+    return check("R14", "No payment stamps or handwritten changes", PASS, "No stamps or handwriting on the page.")
+
+
+def signature_check(layout: dict, source: str, text: str) -> dict | None:
+    """R15: paper invoices should be signed; computer-generated ones need not be."""
+    if not layout.get("available"):
+        return None
+    if any(d["cls"] == "signature" for d in layout.get("detections", [])):
+        return check("R15", "Signed by the supplier", PASS, "Signature found on the page.")
+    if source == "text" or re.search(r"computer[\s-]*generated|digitally signed|\bIRN\b", text or "", re.I):
+        return check("R15", "Signed by the supplier", PASS, "Computer-generated invoice; no physical signature needed.")
+    return check("R15", "Signed by the supplier", WARN, "Paper invoice with no signature found. Noted; does not stop payment.")
 
 
 # ---------------------------------------------------------------- PO matching
@@ -221,13 +305,30 @@ def po_state(po: dict, ledger: list[dict]) -> dict:
     return {"ordered": ordered, "invoiced": used, "remaining": ordered - used, "qty_used": qty_used, "postings": posted}
 
 
-def best_line(desc, po_lines):
-    best, score = None, 0.0
+def line_similarity(a, b):
+    """(score, how). String similarity, raised by embedding similarity when the wording differs but the item is the same.
+    Model numbers and sizes must agree either way: 'HP 12A' is not 'HP 88A' however alike the words are."""
+    from .knowledge import _codes, semantic_similarity
+    ca, cb = _codes(a), _codes(b)
+    if ca and cb and not (ca & cb):
+        return min(similarity(a, b), 0.5), "model mismatch"
+    s = similarity(a, b)
+    if s >= 0.85:
+        return s, "text"
+    sem = semantic_similarity(a, b)
+    if sem is not None and sem >= 0.82 and sem > s:
+        return round(min(0.95, sem), 3), "semantic"
+    return s, "text"
+
+
+def best_line(desc, po_lines, with_how=False):
+    best, score, how = None, 0.0, "text"
     for j, pl in enumerate(po_lines):
-        s = similarity(desc, pl["description"])
+        s, h = line_similarity(desc, pl["description"])
         if s > score:
-            best, score = j, s
-    return (best, score) if score >= 0.6 else (None, score)
+            best, score, how = j, s, h
+    res = (best, score) if score >= 0.6 else (None, score)
+    return (*res, how) if with_how else res
 
 
 def match_po(n: dict, vendor: dict | None, master: dict, ledger: list[dict]) -> tuple[dict, list[dict]]:
@@ -339,9 +440,9 @@ def controls(n: dict, vendor: dict | None, match: dict, master: dict, ledger: li
     tol = pol["line_price_tolerance_pct"]
     price_issues, qty_issues, unmatched = [], [], []
     for li in n.get("line_items") or []:
-        j, score = best_line(li["description"], po["lines"])
+        j, score, how = best_line(li["description"], po["lines"], with_how=True)
         row = {"description": li["description"], "qty": li.get("quantity"), "unit_price": li.get("unit_price"),
-               "amount": li.get("amount"), "po_line": None}
+               "amount": li.get("amount"), "po_line": None, "match": how if j is not None else None, "match_score": round(score, 2)}
         if j is None:
             unmatched.append(li["description"])
             row["status"] = "not on PO"
@@ -361,13 +462,23 @@ def controls(n: dict, vendor: dict | None, match: dict, master: dict, ledger: li
                                   f"({st['qty_used'][j]:g} on earlier invoices + {li.get('quantity'):g} on this one)")
         detail["line_comparison"].append(row)
 
-    if unmatched:
+    if not n.get("line_items"):
+        out.append(check("R11", "Every line is on the PO", FAIL,
+                         "No line items could be read (bundled or unreadable), so prices and quantities cannot be checked against the PO.",
+                         HOLD, queue="AP review", action=f"Check the items against {po['id']} by hand, or ask the vendor for an itemised invoice.",
+                         vendor_ask="an itemised invoice showing quantity and rate for each line"))
+    elif unmatched:
         out.append(check("R11", "Every line is on the PO", FAIL, "Not on the PO: " + "; ".join(unmatched) + ".", HOLD,
                          queue="Procurement", action="Ask the requester whether these items were ordered."))
     else:
-        out.append(check("R11", "Every line is on the PO", PASS, f"All {len(n.get('line_items') or [])} lines map to {po['id']} lines."))
+        sem = [r for r in detail["line_comparison"] if r.get("match") == "semantic"]
+        sem_txt = ", ".join("“%s” → “%s” (%.0f%%)" % (r["description"], r["po_line"], r["match_score"] * 100) for r in sem)
+        out.append(check("R11", "Every line is on the PO", PASS, f"All {len(n.get('line_items') or [])} lines map to {po['id']} lines"
+                         + (f"; {len(sem)} worded differently and matched by meaning: {sem_txt}" if sem else "") + "."))
 
-    if price_issues:
+    if not n.get("line_items"):
+        pass  # nothing to compare; R11 already holds
+    elif price_issues:
         sub = n.get("subtotal") or 0
         total_var = (sub - st["ordered"]) / st["ordered"] * 100 if st["ordered"] else 0
         hidden = abs(total_var) <= pol["total_tolerance_pct"]
@@ -441,6 +552,7 @@ def decide(checks: list[dict], n: dict, vendor: dict | None) -> dict:
 
     return {"decision": decision, "label": label, "summary": summary, "queue": queue,
             "actions": actions, "vendor_email": email,
+            "blocking": [c["id"] for c in blocking],
             "counts": {"passed": sum(c["status"] == PASS for c in checks), "warnings": sum(c["status"] == WARN for c in checks),
                        "failed": len(fails)}}
 

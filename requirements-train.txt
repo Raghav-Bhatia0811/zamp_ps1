@@ -1,0 +1,9 @@
+# Only for retraining the layout detector (scripts/train_layout.py). Not needed to run the app.
+# Install torch from the CPU index first:
+#   .venv-train/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+ultralytics==8.4.202
+onnx==1.23.2
+onnxslim==0.1.99
+reportlab==5.1.0
+pillow==12.3.0
+opencv-python-headless==5.0.0.93
